@@ -1,13 +1,13 @@
 import * as core from '@actions/core'
-import * as github from "@actions/github";
+import * as github from '@actions/github'
 
-type Octokit = ReturnType<typeof github.getOctokit>;
+type Octokit = ReturnType<typeof github.getOctokit>
 
 type PullRequest = {
-  owner: string;
-  repo: string;
-  issue_number: number;
-};
+  owner: string
+  repo: string
+  issue_number: number
+}
 
 /**
  * The main function for the action.
@@ -31,10 +31,12 @@ export async function run(): Promise<void> {
       throw new Error('Input `path` for yaml configs was not set!')
     }
 
-    const githubToken = core.getInput("github_token");
-    const octokit = github.getOctokit(githubToken);
+    const githubToken = core.getInput('github_token')
+    const octokit = github.getOctokit(githubToken)
 
-    const prs = await inferPullRequestsFromContext(octokit);
+    const prs = await inferPullRequestsFromContext(octokit)
+
+    core.info(JSON.stringify(prs))
 
     // Set outputs for other workflow steps to use
     core.setOutput('time', new Date().toTimeString())
@@ -45,32 +47,32 @@ export async function run(): Promise<void> {
 }
 
 const inferPullRequestsFromContext = async (
-  octokit: Octokit,
+  octokit: Octokit
 ): Promise<PullRequest[]> => {
-  const { context } = github;
+  const { context } = github
   if (Number.isSafeInteger(context.issue.number)) {
-    core.debug(`Use #${context.issue.number} from the current context`);
+    core.debug(`Use #${context.issue.number} from the current context`)
     return [
       {
         owner: context.repo.owner,
         repo: context.repo.repo,
-        issue_number: context.issue.number,
-      },
-    ];
+        issue_number: context.issue.number
+      }
+    ]
   }
 
-  core.debug(`List pull requests associated with sha ${context.sha}`);
+  core.debug(`List pull requests associated with sha ${context.sha}`)
   const pulls = await octokit.rest.repos.listPullRequestsAssociatedWithCommit({
     owner: context.repo.owner,
     repo: context.repo.repo,
-    commit_sha: context.sha,
-  });
+    commit_sha: context.sha
+  })
   for (const pull of pulls.data) {
-    core.debug(`  #${pull.number}: ${pull.title}`);
+    core.debug(`  #${pull.number}: ${pull.title}`)
   }
-  return pulls.data.map(p => ({
+  return pulls.data.map((p) => ({
     owner: context.repo.owner,
     repo: context.repo.repo,
-    issue_number: p.number,
-  }));
-};
+    issue_number: p.number
+  }))
+}

@@ -9,15 +9,17 @@ branding:
 
 # Define your inputs here.
 inputs:
-  milliseconds:
-    description: Your input description here
+  api_key:
+    description: Orq api key
     required: true
-    default: '1000'
+  path:
+    description: Yaml config path
+    required: true
 
 # Define your outputs here.
-outputs:
-  time:
-    description: Your output description here
+# outputs:
+#   time:
+#     description: Your output description here
 
 runs:
   using: node20

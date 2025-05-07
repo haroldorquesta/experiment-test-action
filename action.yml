@@ -1,6 +1,6 @@
-name: The name of your action here
-description: Provide a description here
-author: Your name or organization here
+name: 'Orq test experiment'
+description: 'Automatically run experiment on your project using Orq'
+author: 'haroldorquesta'
 
 # Add your action's branding here. This will appear on the GitHub Marketplace.
 branding:

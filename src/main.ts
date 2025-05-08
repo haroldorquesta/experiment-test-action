@@ -13,6 +13,17 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function generateMarkdownTable(headers: string[], rows: string[][]) {
+  let table = `| ${headers.join(' | ')} |\n`
+  table += `|${headers.map(() => '---').join('|')}|\n`
+
+  for (const row of rows) {
+    table += `| ${row.join(' | ')} |\n`
+  }
+
+  return table
+}
+
 /**
  * The main function for the action.
  *
@@ -48,16 +59,16 @@ Orq ai experiment run - in progress
 
       await sleep(5000)
 
+      const headers = ['Col1', 'Col2', 'Col3', 'Col4', 'Col5']
+      const rows = [
+        ['test1', 'test2', 'test3', 'test4', 'test5'],
+        ['test1', 'test2', 'test3', 'test4', 'test5']
+      ]
+
       message = `
 Orq ai experiment run - succeeded
 
-| Tables   |      Are      |  Cool |
-|----------|:-------------:|------:|
-| col 1 is |  left-aligned | $1600 |
-| col 2 is |    centered   |   $12 |
-| col 3 is | right-aligned |    $1 |
-
-
+${generateMarkdownTable(headers, rows)}
 `
 
       await createComment(octokit, prs[0], message)

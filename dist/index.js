@@ -31280,7 +31280,15 @@ Orq ai experiment run - in progress
             await createComment(octokit, prs[0], message);
             await sleep(5000);
             message = `
-Orq ai experiment run - succeeded    
+Orq ai experiment run - succeeded
+
+| Tables   |      Are      |  Cool |
+|----------|:-------------:|------:|
+| col 1 is |  left-aligned | $1600 |
+| col 2 is |    centered   |   $12 |
+| col 3 is | right-aligned |    $1 |
+
+
 `;
             await createComment(octokit, prs[0], message);
         }

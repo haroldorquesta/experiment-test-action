@@ -36,6 +36,10 @@ export async function run(): Promise<void> {
 
     const prs = await inferPullRequestsFromContext(octokit)
 
+    if (prs.length > 0) {
+      await createComment(octokit, prs[0], 'in progress')
+    }
+
     core.info(JSON.stringify(prs))
 
     // Set outputs for other workflow steps to use
@@ -46,12 +50,25 @@ export async function run(): Promise<void> {
   }
 }
 
+const createComment = async (
+  octokit: Octokit,
+  pullRequest: PullRequest,
+  body: string
+) => {
+  await octokit.rest.issues.createComment({
+    owner: pullRequest.owner,
+    repo: pullRequest.repo,
+    issue_number: pullRequest.issue_number,
+    body: `${body}\n`
+  })
+}
+
 const inferPullRequestsFromContext = async (
   octokit: Octokit
 ): Promise<PullRequest[]> => {
   const { context } = github
   if (Number.isSafeInteger(context.issue.number)) {
-    core.debug(`Use #${context.issue.number} from the current context`)
+    core.info(`Use #${context.issue.number} from the current context`)
     return [
       {
         owner: context.repo.owner,
@@ -68,7 +85,7 @@ const inferPullRequestsFromContext = async (
     commit_sha: context.sha
   })
   for (const pull of pulls.data) {
-    core.debug(`  #${pull.number}: ${pull.title}`)
+    core.info(`  #${pull.number}: ${pull.title}`)
   }
   return pulls.data.map((p) => ({
     owner: context.repo.owner,

@@ -31270,6 +31270,9 @@ async function run() {
         const githubToken = coreExports.getInput('github_token');
         const octokit = githubExports.getOctokit(githubToken);
         const prs = await inferPullRequestsFromContext(octokit);
+        if (prs.length > 0) {
+            await createComment(octokit, prs[0], 'in progress');
+        }
         coreExports.info(JSON.stringify(prs));
         // Set outputs for other workflow steps to use
         coreExports.setOutput('time', new Date().toTimeString());
@@ -31280,10 +31283,18 @@ async function run() {
             coreExports.setFailed(error.message);
     }
 }
+const createComment = async (octokit, pullRequest, body) => {
+    await octokit.rest.issues.createComment({
+        owner: pullRequest.owner,
+        repo: pullRequest.repo,
+        issue_number: pullRequest.issue_number,
+        body: `${body}\n`
+    });
+};
 const inferPullRequestsFromContext = async (octokit) => {
     const { context } = github$1;
     if (Number.isSafeInteger(context.issue.number)) {
-        coreExports.debug(`Use #${context.issue.number} from the current context`);
+        coreExports.info(`Use #${context.issue.number} from the current context`);
         return [
             {
                 owner: context.repo.owner,
@@ -31299,7 +31310,7 @@ const inferPullRequestsFromContext = async (octokit) => {
         commit_sha: context.sha
     });
     for (const pull of pulls.data) {
-        coreExports.debug(`  #${pull.number}: ${pull.title}`);
+        coreExports.info(`  #${pull.number}: ${pull.title}`);
     }
     return pulls.data.map((p) => ({
         owner: context.repo.owner,

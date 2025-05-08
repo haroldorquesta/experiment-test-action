@@ -9,6 +9,10 @@ type PullRequest = {
   issue_number: number
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 /**
  * The main function for the action.
  *
@@ -37,7 +41,18 @@ export async function run(): Promise<void> {
     const prs = await inferPullRequestsFromContext(octokit)
 
     if (prs.length > 0) {
-      await createComment(octokit, prs[0], 'in progress')
+      let message = `
+Orq ai experiment run - in progress      
+`
+      await createComment(octokit, prs[0], message)
+
+      await sleep(5000)
+
+      message = `
+Orq ai experiment run - succeeded    
+`
+
+      await createComment(octokit, prs[0], message)
     }
 
     core.info(JSON.stringify(prs))

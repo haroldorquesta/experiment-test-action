@@ -31250,6 +31250,9 @@ var github$1 = /*#__PURE__*/_mergeNamespaces({
 	default: github
 }, [githubExports]);
 
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 /**
  * The main function for the action.
  *
@@ -31271,7 +31274,15 @@ async function run() {
         const octokit = githubExports.getOctokit(githubToken);
         const prs = await inferPullRequestsFromContext(octokit);
         if (prs.length > 0) {
-            await createComment(octokit, prs[0], 'in progress');
+            let message = `
+Orq ai experiment run - in progress      
+`;
+            await createComment(octokit, prs[0], message);
+            await sleep(5000);
+            message = `
+Orq ai experiment run - succeeded    
+`;
+            await createComment(octokit, prs[0], message);
         }
         coreExports.info(JSON.stringify(prs));
         // Set outputs for other workflow steps to use

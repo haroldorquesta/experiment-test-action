@@ -49,13 +49,13 @@ export async function run(): Promise<void> {
     const githubToken = core.getInput('github_token')
     const octokit = github.getOctokit(githubToken)
 
-    const prs = await inferPullRequestsFromContext(octokit)
+    const prs = await getPullRequestsFromContext(octokit)
 
     if (prs.length > 0) {
       let message = `
 Orq ai experiment run - in progress      
 `
-      await createComment(octokit, prs[0], message)
+      await upsertComment(octokit, prs[0], message)
 
       await sleep(5000)
 
@@ -71,7 +71,7 @@ Orq ai experiment run - succeeded
 ${generateMarkdownTable(headers, rows)}
 `
 
-      await createComment(octokit, prs[0], message)
+      await upsertComment(octokit, prs[0], message)
     }
 
     core.info(JSON.stringify(prs))
@@ -84,20 +84,50 @@ ${generateMarkdownTable(headers, rows)}
   }
 }
 
-const createComment = async (
+const upsertComment = async (
   octokit: Octokit,
   pullRequest: PullRequest,
   body: string
 ) => {
+  const commentKey = '<!-- orq_ai_experiment_bot -->'
+
+  const { data: comments } = await octokit.rest.issues.listComments({
+    owner: pullRequest.owner,
+    repo: pullRequest.repo,
+    issue_number: pullRequest.issue_number,
+    sort: 'created',
+    direction: 'desc',
+    per_page: 100
+  })
+
+  core.debug(
+    `Found ${comments.length} comment(s) of #${pullRequest.issue_number}`
+  )
+
+  for (const comment of comments) {
+    if (comment.body?.includes(commentKey)) {
+      const { data: updated } = await octokit.rest.issues.updateComment({
+        owner: pullRequest.owner,
+        repo: pullRequest.repo,
+        comment_id: comment.id,
+        body: `${body}\n${commentKey}`
+      })
+
+      core.info(`Updated the comment ${updated.html_url}`)
+
+      return
+    }
+  }
+
   await octokit.rest.issues.createComment({
     owner: pullRequest.owner,
     repo: pullRequest.repo,
     issue_number: pullRequest.issue_number,
-    body: `${body}\n`
+    body: `${commentKey}\n${body}`
   })
 }
 
-const inferPullRequestsFromContext = async (
+const getPullRequestsFromContext = async (
   octokit: Octokit
 ): Promise<PullRequest[]> => {
   const { context } = github
@@ -118,9 +148,11 @@ const inferPullRequestsFromContext = async (
     repo: context.repo.repo,
     commit_sha: context.sha
   })
+
   for (const pull of pulls.data) {
     core.info(`  #${pull.number}: ${pull.title}`)
   }
+
   return pulls.data.map((p) => ({
     owner: context.repo.owner,
     repo: context.repo.repo,

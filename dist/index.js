@@ -31280,12 +31280,12 @@ async function run() {
         }
         const githubToken = coreExports.getInput('github_token');
         const octokit = githubExports.getOctokit(githubToken);
-        const prs = await inferPullRequestsFromContext(octokit);
+        const prs = await getPullRequestsFromContext(octokit);
         if (prs.length > 0) {
             let message = `
 Orq ai experiment run - in progress      
 `;
-            await createComment(octokit, prs[0], message);
+            await upsertComment(octokit, prs[0], message);
             await sleep(5000);
             const headers = ['Col1', 'Col2', 'Col3', 'Col4', 'Col5'];
             const rows = [
@@ -31297,7 +31297,7 @@ Orq ai experiment run - succeeded
 
 ${generateMarkdownTable(headers, rows)}
 `;
-            await createComment(octokit, prs[0], message);
+            await upsertComment(octokit, prs[0], message);
         }
         coreExports.info(JSON.stringify(prs));
         // Set outputs for other workflow steps to use
@@ -31309,15 +31309,37 @@ ${generateMarkdownTable(headers, rows)}
             coreExports.setFailed(error.message);
     }
 }
-const createComment = async (octokit, pullRequest, body) => {
+const upsertComment = async (octokit, pullRequest, body) => {
+    const commentKey = '<!-- orq_ai_experiment_bot -->';
+    const { data: comments } = await octokit.rest.issues.listComments({
+        owner: pullRequest.owner,
+        repo: pullRequest.repo,
+        issue_number: pullRequest.issue_number,
+        sort: 'created',
+        direction: 'desc',
+        per_page: 100
+    });
+    coreExports.debug(`Found ${comments.length} comment(s) of #${pullRequest.issue_number}`);
+    for (const comment of comments) {
+        if (comment.body?.includes(commentKey)) {
+            const { data: updated } = await octokit.rest.issues.updateComment({
+                owner: pullRequest.owner,
+                repo: pullRequest.repo,
+                comment_id: comment.id,
+                body: `${body}\n${commentKey}`
+            });
+            coreExports.info(`Updated the comment ${updated.html_url}`);
+            return;
+        }
+    }
     await octokit.rest.issues.createComment({
         owner: pullRequest.owner,
         repo: pullRequest.repo,
         issue_number: pullRequest.issue_number,
-        body: `${body}\n`
+        body: `${commentKey}\n${body}`
     });
 };
-const inferPullRequestsFromContext = async (octokit) => {
+const getPullRequestsFromContext = async (octokit) => {
     const { context } = github$1;
     if (Number.isSafeInteger(context.issue.number)) {
         coreExports.info(`Use #${context.issue.number} from the current context`);

@@ -74,7 +74,7 @@ ${generateMarkdownTable(headers, rows)}
       await upsertComment(octokit, prs[0], message)
     }
 
-    await getChangesInAPr()
+    await getChangesInAPr(path)
 
     core.info(JSON.stringify(prs))
 
@@ -86,7 +86,78 @@ ${generateMarkdownTable(headers, rows)}
   }
 }
 
-async function getChangesInAPr() {
+interface FileLines {
+  start: number
+  end: number
+}
+
+export interface ModifiedFile {
+  name: string
+  deletion?: FileLines[]
+  addition?: FileLines[]
+}
+
+function parseFile(file: {
+  filename: string
+  patch?: string | undefined
+}): ModifiedFile {
+  const modifiedFile: ModifiedFile = {
+    name: file.filename
+  }
+  if (file.patch) {
+    // The changes are included in the file
+    const patches = file.patch.split('@@').filter((_, index) => index % 2) // Only take the line information and discard the modified code
+    for (const patch of patches) {
+      // patch is usually like " -6,7 +6,8"
+      try {
+        const hasAddition = patch.includes('+')
+        // const hasDeletion = patch.includes('-');
+        if (hasAddition) {
+          const matches = patch.match(/\+.*/)
+          if (matches && matches.length > 0) {
+            const lines = matches[0]
+              .trim()
+              .slice(1)
+              .split(',')
+              .map((num) => Number.parseInt(num))
+            modifiedFile.addition ??= []
+            modifiedFile.addition?.push({
+              start: lines[0] as number,
+              end: (lines[0] as number) + (lines[1] as number)
+            })
+          }
+        }
+        // if (hasDeletion) {
+        //   const lines = patch.split('+')[0].trim().slice(1).split(',').map((num) => parseInt(num)) as [number, number];
+        //   modifiedFile.deletion ??= [];
+        //   modifiedFile.deletion?.push({
+        //     start: lines[0],
+        //     end: lines[0] + lines[1],
+        //   });
+        // }
+      } catch (error) {
+        console.log(`Error getting the patch of the file:\n${error}`)
+      }
+    }
+  } else {
+    // Take the all file
+    modifiedFile.addition = [
+      {
+        start: 0,
+        end: Number.POSITIVE_INFINITY
+      }
+    ]
+    modifiedFile.deletion = [
+      {
+        start: 0,
+        end: Number.POSITIVE_INFINITY
+      }
+    ]
+  }
+  return modifiedFile
+}
+
+async function getChangesInAPr(path: string) {
   const { context } = github
   if (context.payload) {
     core.info(`Context: ${JSON.stringify(context)}`)
@@ -107,9 +178,18 @@ async function getChangesInAPr() {
       repo: context.repo.repo
     })
 
-    const files = response.data.files
-    const fileNames = files?.map((file) => file.filename)
-    console.info(`fileNames: ${fileNames}`)
+    // const files = response.data.files
+    // const fileNames = files?.map((file) => file.filename)
+    const files = response.data.files ?? []
+    for (const file of files) {
+      if (file.filename.startsWith(path)) {
+        const modifiedFilesWithModifiedLines = parseFile(file)
+        core.info(`filename: ${file.filename}`)
+        core.info(
+          `modifiedFilesWithModifiedLines: ${modifiedFilesWithModifiedLines}`
+        )
+      }
+    }
   }
 }
 

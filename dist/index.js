@@ -31299,7 +31299,7 @@ ${generateMarkdownTable(headers, rows)}
 `;
             await upsertComment(octokit, prs[0], message);
         }
-        await getChangesInAPr();
+        await getChangesInAPr(path);
         coreExports.info(JSON.stringify(prs));
         // Set outputs for other workflow steps to use
         coreExports.setOutput('time', new Date().toTimeString());
@@ -31310,7 +31310,65 @@ ${generateMarkdownTable(headers, rows)}
             coreExports.setFailed(error.message);
     }
 }
-async function getChangesInAPr() {
+function parseFile(file) {
+    const modifiedFile = {
+        name: file.filename
+    };
+    if (file.patch) {
+        // The changes are included in the file
+        const patches = file.patch.split('@@').filter((_, index) => index % 2); // Only take the line information and discard the modified code
+        for (const patch of patches) {
+            // patch is usually like " -6,7 +6,8"
+            try {
+                const hasAddition = patch.includes('+');
+                // const hasDeletion = patch.includes('-');
+                if (hasAddition) {
+                    const matches = patch.match(/\+.*/);
+                    if (matches && matches.length > 0) {
+                        const lines = matches[0]
+                            .trim()
+                            .slice(1)
+                            .split(',')
+                            .map((num) => Number.parseInt(num));
+                        modifiedFile.addition ??= [];
+                        modifiedFile.addition?.push({
+                            start: lines[0],
+                            end: lines[0] + lines[1]
+                        });
+                    }
+                }
+                // if (hasDeletion) {
+                //   const lines = patch.split('+')[0].trim().slice(1).split(',').map((num) => parseInt(num)) as [number, number];
+                //   modifiedFile.deletion ??= [];
+                //   modifiedFile.deletion?.push({
+                //     start: lines[0],
+                //     end: lines[0] + lines[1],
+                //   });
+                // }
+            }
+            catch (error) {
+                console.log(`Error getting the patch of the file:\n${error}`);
+            }
+        }
+    }
+    else {
+        // Take the all file
+        modifiedFile.addition = [
+            {
+                start: 0,
+                end: Number.POSITIVE_INFINITY
+            }
+        ];
+        modifiedFile.deletion = [
+            {
+                start: 0,
+                end: Number.POSITIVE_INFINITY
+            }
+        ];
+    }
+    return modifiedFile;
+}
+async function getChangesInAPr(path) {
     const { context } = github$1;
     if (context.payload) {
         coreExports.info(`Context: ${JSON.stringify(context)}`);
@@ -31328,9 +31386,16 @@ async function getChangesInAPr() {
             owner: context.repo.owner,
             repo: context.repo.repo
         });
-        const files = response.data.files;
-        const fileNames = files?.map((file) => file.filename);
-        console.info(`fileNames: ${fileNames}`);
+        // const files = response.data.files
+        // const fileNames = files?.map((file) => file.filename)
+        const files = response.data.files ?? [];
+        for (const file of files) {
+            if (file.filename.startsWith(path)) {
+                const modifiedFilesWithModifiedLines = parseFile(file);
+                coreExports.info(`filename: ${file.filename}`);
+                coreExports.info(`modifiedFilesWithModifiedLines: ${modifiedFilesWithModifiedLines}`);
+            }
+        }
     }
 }
 const upsertComment = async (octokit, pullRequest, body) => {

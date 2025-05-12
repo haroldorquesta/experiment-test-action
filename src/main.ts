@@ -186,7 +186,7 @@ async function getChangesInAPr(path: string) {
         const modifiedFilesWithModifiedLines = parseFile(file)
         core.info(`filename: ${file.filename}`)
         core.info(
-          `modifiedFilesWithModifiedLines: ${modifiedFilesWithModifiedLines}`
+          `modifiedFilesWithModifiedLines: ${JSON.stringify(modifiedFilesWithModifiedLines)}`
         )
       }
     }

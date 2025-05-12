@@ -31393,7 +31393,7 @@ async function getChangesInAPr(path) {
             if (file.filename.startsWith(path)) {
                 const modifiedFilesWithModifiedLines = parseFile(file);
                 coreExports.info(`filename: ${file.filename}`);
-                coreExports.info(`modifiedFilesWithModifiedLines: ${modifiedFilesWithModifiedLines}`);
+                coreExports.info(`modifiedFilesWithModifiedLines: ${JSON.stringify(modifiedFilesWithModifiedLines)}`);
             }
         }
     }

@@ -74,6 +74,8 @@ ${generateMarkdownTable(headers, rows)}
       await upsertComment(octokit, prs[0], message)
     }
 
+    await getChangesInAPr()
+
     core.info(JSON.stringify(prs))
 
     // Set outputs for other workflow steps to use
@@ -81,6 +83,28 @@ ${generateMarkdownTable(headers, rows)}
   } catch (error) {
     // Fail the workflow run if an error occurs
     if (error instanceof Error) core.setFailed(error.message)
+  }
+}
+
+async function getChangesInAPr() {
+  const { context } = github
+  if (context.payload) {
+    const base = context.payload.pull_request?.base.sha
+    const head = context.payload.pull_request?.head.sha
+
+    const githubToken = core.getInput('github_token')
+    const octokit = github.getOctokit(githubToken)
+
+    const response = await octokit.rest.repos.compareCommits({
+      base,
+      head,
+      owner: context.repo.owner,
+      repo: context.repo.repo
+    })
+
+    const files = response.data.files
+    const fileNames = files?.map((file) => file.filename)
+    console.info(`fileNames: ${fileNames}`)
   }
 }
 

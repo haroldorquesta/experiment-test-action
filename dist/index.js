@@ -31299,6 +31299,7 @@ ${generateMarkdownTable(headers, rows)}
 `;
             await upsertComment(octokit, prs[0], message);
         }
+        await getChangesInAPr();
         coreExports.info(JSON.stringify(prs));
         // Set outputs for other workflow steps to use
         coreExports.setOutput('time', new Date().toTimeString());
@@ -31307,6 +31308,24 @@ ${generateMarkdownTable(headers, rows)}
         // Fail the workflow run if an error occurs
         if (error instanceof Error)
             coreExports.setFailed(error.message);
+    }
+}
+async function getChangesInAPr() {
+    const { context } = github$1;
+    if (context.payload) {
+        const base = context.payload.pull_request?.base.sha;
+        const head = context.payload.pull_request?.head.sha;
+        const githubToken = coreExports.getInput('github_token');
+        const octokit = githubExports.getOctokit(githubToken);
+        const response = await octokit.rest.repos.compareCommits({
+            base,
+            head,
+            owner: context.repo.owner,
+            repo: context.repo.repo
+        });
+        const files = response.data.files;
+        const fileNames = files?.map((file) => file.filename);
+        console.info(`fileNames: ${fileNames}`);
     }
 }
 const upsertComment = async (octokit, pullRequest, body) => {

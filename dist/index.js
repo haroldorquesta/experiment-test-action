@@ -31313,6 +31313,8 @@ ${generateMarkdownTable(headers, rows)}
 async function getChangesInAPr() {
     const { context } = github$1;
     if (context.payload) {
+        coreExports.info(`Context: ${JSON.stringify(context)}`);
+        coreExports.info(`sha: ${context.sha}`);
         coreExports.info(`pull_request: ${JSON.stringify(context.payload.pull_request)}`);
         const base = context.payload.pull_request?.base.sha;
         coreExports.info(`base: ${base}`);

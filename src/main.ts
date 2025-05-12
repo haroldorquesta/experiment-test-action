@@ -90,7 +90,9 @@ async function getChangesInAPr() {
   const { context } = github
   if (context.payload) {
     const base = context.payload.pull_request?.base.sha
+    core.info(`base: ${base}`)
     const head = context.payload.pull_request?.head.sha
+    core.info(`head: ${head}`)
 
     const githubToken = core.getInput('github_token')
     const octokit = github.getOctokit(githubToken)

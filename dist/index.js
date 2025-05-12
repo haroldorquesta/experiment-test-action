@@ -31314,7 +31314,9 @@ async function getChangesInAPr() {
     const { context } = github$1;
     if (context.payload) {
         const base = context.payload.pull_request?.base.sha;
+        coreExports.info(`base: ${base}`);
         const head = context.payload.pull_request?.head.sha;
+        coreExports.info(`head: ${head}`);
         const githubToken = coreExports.getInput('github_token');
         const octokit = githubExports.getOctokit(githubToken);
         const response = await octokit.rest.repos.compareCommits({

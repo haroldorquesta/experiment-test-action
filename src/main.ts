@@ -89,6 +89,7 @@ ${generateMarkdownTable(headers, rows)}
 async function getChangesInAPr() {
   const { context } = github
   if (context.payload) {
+    core.info(`pull_request: ${JSON.stringify(context.payload.pull_request)}`)
     const base = context.payload.pull_request?.base.sha
     core.info(`base: ${base}`)
     const head = context.payload.pull_request?.head.sha

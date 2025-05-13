@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import * as fs from 'fs'
+import { load } from 'js-yaml'
+import * as fs from 'node:fs'
 
 type Octokit = ReturnType<typeof github.getOctokit>
 
@@ -192,7 +193,7 @@ async function getChangesInAPr(path: string) {
         )
 
         const newContent = fs.readFileSync(file.filename)
-        core.info(`new content: ${newContent}`)
+        core.info(`new content: ${load(newContent.toString())}`)
 
         const content = await octokit.rest.repos.getContent({
           owner: context.repo.owner,
@@ -223,7 +224,7 @@ async function getChangesInAPr(path: string) {
           'utf8'
         )
 
-        core.info(`original content: ${JSON.stringify(decodedString)}`)
+        core.info(`original content: ${load(decodedString)}`)
       }
     }
   }

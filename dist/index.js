@@ -31404,7 +31404,7 @@ async function getChangesInAPr(path) {
                     path: file.filename,
                     ref: head
                 });
-                coreExports.info(`original content: ${content}`);
+                coreExports.info(`original content: ${JSON.stringify(content)}`);
             }
         }
     }

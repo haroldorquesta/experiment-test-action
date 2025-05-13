@@ -38837,7 +38837,7 @@ async function getChangesInAPr(path) {
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     path: file.filename,
-                    ref: head
+                    ref: base
                 });
                 const data = content.data;
                 const decodedString = Buffer.from(data.content, 'base64').toString('utf8');

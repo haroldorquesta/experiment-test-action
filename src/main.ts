@@ -201,7 +201,7 @@ async function getChangesInAPr(path: string) {
           owner: context.repo.owner,
           repo: context.repo.repo,
           path: file.filename,
-          ref: head
+          ref: base
         })
 
         interface ContentFile {

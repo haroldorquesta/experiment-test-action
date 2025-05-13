@@ -38832,7 +38832,7 @@ async function getChangesInAPr(path) {
                 coreExports.info(`status: ${file.status}`);
                 coreExports.info(`modifiedFilesWithModifiedLines: ${JSON.stringify(modifiedFilesWithModifiedLines)}`);
                 const newContent = fs.readFileSync(file.filename);
-                coreExports.info(`new content: ${YAML.parse(newContent.toString())}`);
+                coreExports.info(`new content: ${JSON.stringify(YAML.parse(newContent.toString()))}`);
                 const content = await octokit.rest.repos.getContent({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
@@ -38841,7 +38841,7 @@ async function getChangesInAPr(path) {
                 });
                 const data = content.data;
                 const decodedString = Buffer.from(data.content, 'base64').toString('utf8');
-                coreExports.info(`original content: ${YAML.parse(decodedString)}`);
+                coreExports.info(`original content: ${JSON.stringify(YAML.parse(decodedString))}`);
             }
         }
     }

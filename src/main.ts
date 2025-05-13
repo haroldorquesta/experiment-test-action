@@ -193,7 +193,9 @@ async function getChangesInAPr(path: string) {
         )
 
         const newContent = fs.readFileSync(file.filename)
-        core.info(`new content: ${yaml.parse(newContent.toString())}`)
+        core.info(
+          `new content: ${JSON.stringify(yaml.parse(newContent.toString()))}`
+        )
 
         const content = await octokit.rest.repos.getContent({
           owner: context.repo.owner,
@@ -224,7 +226,9 @@ async function getChangesInAPr(path: string) {
           'utf8'
         )
 
-        core.info(`original content: ${yaml.parse(decodedString)}`)
+        core.info(
+          `original content: ${JSON.stringify(yaml.parse(decodedString))}`
+        )
       }
     }
   }

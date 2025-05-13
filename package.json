@@ -1,7 +1,7 @@
 {
   "name": "typescript-action",
   "description": "GitHub Actions TypeScript template",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "author": "",
   "type": "module",
   "private": true,
@@ -38,7 +38,7 @@
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.11.1",
-    "js-yaml": "^4.1.0"
+    "yaml": "^2.7.1"
   },
   "devDependencies": {
     "@eslint/compat": "^1.2.8",
@@ -48,8 +48,8 @@
     "@rollup/plugin-node-resolve": "^16.0.1",
     "@rollup/plugin-typescript": "^12.1.1",
     "@types/jest": "^29.5.14",
-    "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.17.31",
+    "@types/yaml": "^1.9.7",
     "@typescript-eslint/eslint-plugin": "^8.31.0",
     "@typescript-eslint/parser": "^8.31.0",
     "eslint": "^9.25.1",

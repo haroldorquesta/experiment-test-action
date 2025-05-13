@@ -201,7 +201,29 @@ async function getChangesInAPr(path: string) {
           ref: head
         })
 
-        core.info(`original content: ${JSON.stringify(content)}`)
+        interface ContentFile {
+          type: 'file'
+          encoding: string
+          size: number
+          name: string
+          path: string
+          content: string
+          sha: string
+          url: string
+          git_url: string | null
+          html_url: string | null
+          download_url: string | null
+          target: string | undefined
+          submodule_git_url: string | undefined
+        }
+
+        const data = content.data as ContentFile
+
+        const decodedString = Buffer.from(data.content, 'base64').toString(
+          'utf8'
+        )
+
+        core.info(`original content: ${JSON.stringify(decodedString)}`)
       }
     }
   }

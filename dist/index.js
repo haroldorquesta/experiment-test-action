@@ -31404,7 +31404,9 @@ async function getChangesInAPr(path) {
                     path: file.filename,
                     ref: head
                 });
-                coreExports.info(`original content: ${JSON.stringify(content)}`);
+                const data = content.data;
+                const decodedString = Buffer.from(data.content, 'base64').toString('utf8');
+                coreExports.info(`original content: ${JSON.stringify(decodedString)}`);
             }
         }
     }

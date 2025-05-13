@@ -1,5 +1,6 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
+import * as fs from 'fs'
 
 type Octokit = ReturnType<typeof github.getOctokit>
 
@@ -182,12 +183,25 @@ async function getChangesInAPr(path: string) {
     // const fileNames = files?.map((file) => file.filename)
     const files = response.data.files ?? []
     for (const file of files) {
-      if (file.filename.startsWith(path)) {
+      if (file.filename.startsWith(path) && file.status === 'modified') {
         const modifiedFilesWithModifiedLines = parseFile(file)
         core.info(`filename: ${file.filename}`)
+        core.info(`status: ${file.status}`)
         core.info(
           `modifiedFilesWithModifiedLines: ${JSON.stringify(modifiedFilesWithModifiedLines)}`
         )
+
+        const newContent = fs.readFileSync(file.filename)
+        core.info(`new content: ${newContent}`)
+
+        const content = await octokit.rest.repos.getContent({
+          owner: context.repo.owner,
+          repo: context.repo.repo,
+          path: file.filename,
+          ref: head
+        })
+
+        core.info(`original content: ${content}`)
       }
     }
   }

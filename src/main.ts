@@ -201,7 +201,7 @@ async function getChangesInAPr(path: string) {
           ref: head
         })
 
-        core.info(`original content: ${content}`)
+        core.info(`original content: ${JSON.stringify(content)}`)
       }
     }
   }

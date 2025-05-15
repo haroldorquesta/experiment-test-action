@@ -20,3 +20,24 @@ export type ModifiedFile = {
   deletion?: FileLines[]
   addition?: FileLines[]
 }
+
+export type GithubContentFile = {
+  type: 'file'
+  encoding: string
+  size: number
+  name: string
+  path: string
+  content: string
+  sha: string
+  url: string
+  git_url: string | null
+  html_url: string | null
+  download_url: string | null
+  target: string | undefined
+  submodule_git_url: string | undefined
+}
+
+export type ExperimentPayload = {
+  deployment_id: string
+  dataset_id: string
+}

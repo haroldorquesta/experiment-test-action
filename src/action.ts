@@ -1,9 +1,11 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-// import yaml from 'yaml'
-// import * as fs from 'node:fs'
-import { generateMarkdownTable, sleep } from './utils.js'
+import yaml from 'yaml'
+import * as fs from 'node:fs'
+import { decodeBase64String, generateMarkdownTable, sleep } from './utils.js'
 import type {
+  ExperimentPayload,
+  GithubContentFile,
   GithubContext,
   GithubOctokit,
   GithubPullRequest
@@ -13,6 +15,8 @@ class OrqExperimentAction {
   private octokit: GithubOctokit
   private context: GithubContext
   private pullRequest: GithubPullRequest
+  private apiKey = ''
+  private path = ''
 
   constructor() {
     this.octokit = github.getOctokit(core.getInput('github_token'))
@@ -34,17 +38,23 @@ class OrqExperimentAction {
       throw new Error('Input `api_key` not set!')
     }
 
+    this.apiKey = apiKey
+
     const path = core.getInput('path')
 
     if (!path) {
       throw new Error('Input `path` for yaml configs was not set!')
     }
+
+    this.path = path
   }
 
   async run(): Promise<void> {
     if (!this.pullRequest) {
       throw new Error('Pull request not found!')
     }
+
+    const configChanges = await this.getConfigChanges()
 
     const commentKey = '<!-- orq_experiment_action_12345 -->'
 
@@ -63,6 +73,8 @@ Orq ai experiment run - in progress
 
     message = `
 Orq ai experiment run - succeeded
+
+has changes -> ${configChanges.join(',')}
 
 ${generateMarkdownTable(headers, rows)}
 `
@@ -110,137 +122,67 @@ ${generateMarkdownTable(headers, rows)}
     })
   }
 
-  // function parseFile(file: {
-  //   filename: string
-  //   patch?: string | undefined
-  // }): ModifiedFile {
-  //   const modifiedFile: ModifiedFile = {
-  //     name: file.filename
-  //   }
-  //   if (file.patch) {
-  //     // The changes are included in the file
-  //     const patches = file.patch.split('@@').filter((_, index) => index % 2) // Only take the line information and discard the modified code
-  //     for (const patch of patches) {
-  //       // patch is usually like " -6,7 +6,8"
-  //       try {
-  //         const hasAddition = patch.includes('+')
-  //         // const hasDeletion = patch.includes('-');
-  //         if (hasAddition) {
-  //           const matches = patch.match(/\+.*/)
-  //           if (matches && matches.length > 0) {
-  //             const lines = matches[0]
-  //               .trim()
-  //               .slice(1)
-  //               .split(',')
-  //               .map((num) => Number.parseInt(num))
-  //             modifiedFile.addition ??= []
-  //             modifiedFile.addition?.push({
-  //               start: lines[0] as number,
-  //               end: (lines[0] as number) + (lines[1] as number)
-  //             })
-  //           }
-  //         }
-  //         // if (hasDeletion) {
-  //         //   const lines = patch.split('+')[0].trim().slice(1).split(',').map((num) => parseInt(num)) as [number, number];
-  //         //   modifiedFile.deletion ??= [];
-  //         //   modifiedFile.deletion?.push({
-  //         //     start: lines[0],
-  //         //     end: lines[0] + lines[1],
-  //         //   });
-  //         // }
-  //       } catch (error) {
-  //         console.log(`Error getting the patch of the file:\n${error}`)
-  //       }
-  //     }
-  //   } else {
-  //     // Take the all file
-  //     modifiedFile.addition = [
-  //       {
-  //         start: 0,
-  //         end: Number.POSITIVE_INFINITY
-  //       }
-  //     ]
-  //     modifiedFile.deletion = [
-  //       {
-  //         start: 0,
-  //         end: Number.POSITIVE_INFINITY
-  //       }
-  //     ]
-  //   }
-  //   return modifiedFile
-  // }
+  async runExperiment(payload: ExperimentPayload) {
+    core.info(`payload: ${payload}`)
+    core.info(`apiKey: ${this.apiKey}`)
+  }
 
-  // async function getChangesInAPr(path: string) {
-  //   const { context } = github
-  //   if (context.payload) {
-  //     core.info(`Context: ${JSON.stringify(context)}`)
-  //     core.info(`sha: ${context.sha}`)
-  //     core.info(`pull_request: ${JSON.stringify(context.payload.pull_request)}`)
-  //     const base = context.payload.pull_request?.base.sha
-  //     core.info(`base: ${base}`)
-  //     const head = context.payload.pull_request?.head.sha
-  //     core.info(`head: ${head}`)
+  async hasConfigChange(filename: string, base_sha: string) {
+    const newContent: ExperimentPayload = yaml.parse(
+      fs.readFileSync(filename).toString()
+    )
+    const { repo } = this.context
 
-  //     const githubToken = core.getInput('github_token')
-  //     const octokit = github.getOctokit(githubToken)
+    const response = await this.octokit.rest.repos.getContent({
+      owner: repo.owner,
+      repo: repo.repo,
+      path: filename,
+      ref: base_sha
+    })
 
-  //     const response = await octokit.rest.repos.compareCommits({
-  //       base,
-  //       head,
-  //       owner: context.repo.owner,
-  //       repo: context.repo.repo
-  //     })
+    const githubContentFile = response.data as GithubContentFile
+    const originalContent: ExperimentPayload = yaml.parse(
+      decodeBase64String(githubContentFile.content)
+    )
 
-  //     // const files = response.data.files
-  //     // const fileNames = files?.map((file) => file.filename)
-  //     const files = response.data.files ?? []
-  //     for (const file of files) {
-  //       if (file.filename.startsWith(path) && file.status === 'modified') {
-  //         const modifiedFilesWithModifiedLines = parseFile(file)
-  //         core.info(`filename: ${file.filename}`)
-  //         core.info(`status: ${file.status}`)
-  //         core.info(
-  //           `modifiedFilesWithModifiedLines: ${JSON.stringify(modifiedFilesWithModifiedLines)}`
-  //         )
+    if (originalContent.deployment_id !== newContent.deployment_id) {
+      return true
+    }
 
-  //         const newContent = fs.readFileSync(file.filename)
-  //         core.info(
-  //           `new content: ${JSON.stringify(yaml.parse(newContent.toString()))}`
-  //         )
+    if (originalContent.dataset_id !== newContent.dataset_id) {
+      return true
+    }
 
-  //         const content = await octokit.rest.repos.getContent({
-  //           owner: context.repo.owner,
-  //           repo: context.repo.repo,
-  //           path: file.filename,
-  //           ref: base
-  //         })
+    return null
+  }
 
-  //         interface ContentFile {
-  //           type: 'file'
-  //           encoding: string
-  //           size: number
-  //           name: string
-  //           path: string
-  //           content: string
-  //           sha: string
-  //           url: string
-  //           git_url: string | null
-  //           html_url: string | null
-  //           download_url: string | null
-  //           target: string | undefined
-  //           submodule_git_url: string | undefined
-  //         }
-  //         const data = content.data as ContentFile
-  //         const decodedString = Buffer.from(data.content, 'base64').toString(
-  //           'utf8'
-  //         )
-  //         core.info(
-  //           `original content: ${JSON.stringify(yaml.parse(decodedString))}`
-  //         )
-  //       }
-  //     }
-  //   }
-  // }
+  async getConfigChanges() {
+    const { payload, repo } = this.context
+    const fileChanges = []
+
+    if (payload) {
+      const base = payload.pull_request?.base.sha
+      const head = payload.pull_request?.head.sha
+
+      const response = await this.octokit.rest.repos.compareCommits({
+        base,
+        head,
+        owner: repo.owner,
+        repo: repo.repo
+      })
+
+      const files = response.data.files ?? []
+      for (const file of files) {
+        if (file.filename.startsWith(this.path) && file.status === 'modified') {
+          if (await this.hasConfigChange(file.filename, base)) {
+            fileChanges.push(file.filename)
+          }
+        }
+      }
+    }
+
+    return fileChanges
+  }
 }
 
 export default OrqExperimentAction

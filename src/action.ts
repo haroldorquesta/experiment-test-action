@@ -4,11 +4,13 @@ import yaml from 'yaml'
 import * as fs from 'node:fs'
 import { decodeBase64String, generateMarkdownTable, sleep } from './utils.js'
 import type {
-  ExperimentPayload,
+  DeploymentExperimentRunResponse,
+  DeploymentExperimentRunPayload,
   GithubContentFile,
   GithubContext,
   GithubOctokit,
-  GithubPullRequest
+  GithubPullRequest,
+  ExperimentResult
 } from './types.js'
 
 class OrqExperimentAction {
@@ -17,6 +19,7 @@ class OrqExperimentAction {
   private pullRequest: GithubPullRequest
   private apiKey = ''
   private path = ''
+  private orqApiBaseUrl = 'https://my.staging.orq.ai'
 
   constructor() {
     this.octokit = github.getOctokit(core.getInput('github_token'))
@@ -28,6 +31,44 @@ class OrqExperimentAction {
       owner: repo.owner,
       repo: repo.repo,
       issue_number: issue.number
+    }
+  }
+
+  async run(): Promise<void> {
+    if (!this.pullRequest) {
+      throw new Error('Pull request not found!')
+    }
+
+    const configChanges = await this.getConfigChanges()
+
+    for (const configChange of configChanges) {
+      const commentKey = `<!-- orq_experiment_action_${configChange.experiment_key} -->`
+
+      let message = `
+Experiment ${configChange.experiment_key} is now running...   
+`
+      await this.upsertComment(commentKey, message)
+
+      const experiment = await this.runExperiment(configChange)
+      const experimentResult = await this.getExperimentResult(experiment)
+
+      await sleep(5000)
+
+      const headers = ['Col1', 'Col2', 'Col3', 'Col4', 'Col5']
+      const rows = [
+        ['test1', 'test2', 'test3', 'test4', 'test5'],
+        ['test1', 'test2', 'test3', 'test4', 'test5']
+      ]
+
+      message = `
+Experiment ${configChange.experiment_key} has finished running!
+
+Result:
+${JSON.stringify(experimentResult)}
+
+${generateMarkdownTable(headers, rows)}
+`
+      this.upsertComment(commentKey, message)
     }
   }
 
@@ -49,36 +90,55 @@ class OrqExperimentAction {
     this.path = path
   }
 
-  async run(): Promise<void> {
-    if (!this.pullRequest) {
-      throw new Error('Pull request not found!')
+  private async runExperiment(payload: DeploymentExperimentRunPayload) {
+    const response = await fetch(
+      `${this.orqApiBaseUrl}/v2/deployments/${payload.deployment_key}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify({
+          type: 'deployment_experiment',
+          experiment_key: payload.experiment_key,
+          dataset_id: payload.dataset_id,
+          ...(payload.context && {
+            context: payload.context
+          }),
+          ...(payload.evaluators && {
+            evaluators: payload.evaluators
+          })
+        })
+      }
+    )
+
+    const data = (await response.json()) as DeploymentExperimentRunResponse
+
+    return data
+  }
+
+  private async getExperimentResult(
+    payload: DeploymentExperimentRunResponse
+  ): Promise<ExperimentResult> {
+    while (true) {
+      const response = await fetch(
+        `${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`
+          }
+        }
+      )
+
+      const data = (await response.json()) as ExperimentResult
+
+      if (data.status === 'completed') {
+        return data
+      }
     }
-
-    const configChanges = await this.getConfigChanges()
-
-    const commentKey = '<!-- orq_experiment_action_12345 -->'
-
-    let message = `
-Orq ai experiment run - in progress      
-`
-    await this.upsertComment(commentKey, message)
-
-    await sleep(5000)
-
-    const headers = ['Col1', 'Col2', 'Col3', 'Col4', 'Col5']
-    const rows = [
-      ['test1', 'test2', 'test3', 'test4', 'test5'],
-      ['test1', 'test2', 'test3', 'test4', 'test5']
-    ]
-
-    message = `
-Orq ai experiment run - succeeded
-
-has changes -> ${configChanges.join(',')}
-
-${generateMarkdownTable(headers, rows)}
-`
-    this.upsertComment(commentKey, message)
   }
 
   private async findExistingComment(key: string): Promise<number | null> {
@@ -122,13 +182,8 @@ ${generateMarkdownTable(headers, rows)}
     })
   }
 
-  async runExperiment(payload: ExperimentPayload) {
-    core.info(`payload: ${payload}`)
-    core.info(`apiKey: ${this.apiKey}`)
-  }
-
   async hasConfigChange(filename: string, base_sha: string) {
-    const newContent: ExperimentPayload = yaml.parse(
+    const newContent: DeploymentExperimentRunPayload = yaml.parse(
       fs.readFileSync(filename).toString()
     )
     const { repo } = this.context
@@ -141,16 +196,16 @@ ${generateMarkdownTable(headers, rows)}
     })
 
     const githubContentFile = response.data as GithubContentFile
-    const originalContent: ExperimentPayload = yaml.parse(
+    const originalContent: DeploymentExperimentRunPayload = yaml.parse(
       decodeBase64String(githubContentFile.content)
     )
 
-    if (originalContent.deployment_id !== newContent.deployment_id) {
-      return true
+    if (originalContent.deployment_key !== newContent.deployment_key) {
+      return newContent
     }
 
     if (originalContent.dataset_id !== newContent.dataset_id) {
-      return true
+      return newContent
     }
 
     return null
@@ -158,7 +213,7 @@ ${generateMarkdownTable(headers, rows)}
 
   async getConfigChanges() {
     const { payload, repo } = this.context
-    const fileChanges = []
+    const fileChanges = [] as DeploymentExperimentRunPayload[]
 
     if (payload) {
       const base = payload.pull_request?.base.sha
@@ -174,8 +229,9 @@ ${generateMarkdownTable(headers, rows)}
       const files = response.data.files ?? []
       for (const file of files) {
         if (file.filename.startsWith(this.path) && file.status === 'modified') {
-          if (await this.hasConfigChange(file.filename, base)) {
-            fileChanges.push(file.filename)
+          const newChange = await this.hasConfigChange(file.filename, base)
+          if (newChange !== null) {
+            fileChanges.push(newChange)
           }
         }
       }

@@ -37,7 +37,24 @@ export type GithubContentFile = {
   submodule_git_url: string | undefined
 }
 
-export type ExperimentPayload = {
-  deployment_id: string
+export type DeploymentExperimentRunPayload = {
+  type: string
+  deployment_key: string
   dataset_id: string
+  experiment_key: string
+  context: Record<string, unknown> | undefined
+  evaluators: string[] | undefined
+}
+
+export type DeploymentExperimentRunResponse = {
+  url: string
+  experiment_id: string
+  experiment_run_id: string
+}
+
+export type ExperimentResult = {
+  deployment_id: string
+  deployment_variant_id: string
+  deployment_variant_version: string
+  status: string
 }

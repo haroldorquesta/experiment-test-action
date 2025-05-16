@@ -38686,6 +38686,7 @@ class OrqExperimentAction {
     pullRequest;
     apiKey = '';
     path = '';
+    orqApiBaseUrl = 'https://my.staging.orq.ai';
     constructor() {
         this.octokit = githubExports.getOctokit(coreExports.getInput('github_token'));
         this.context = githubExports.context;
@@ -38695,6 +38696,36 @@ class OrqExperimentAction {
             repo: repo.repo,
             issue_number: issue.number
         };
+    }
+    async run() {
+        if (!this.pullRequest) {
+            throw new Error('Pull request not found!');
+        }
+        const configChanges = await this.getConfigChanges();
+        for (const configChange of configChanges) {
+            const commentKey = `<!-- orq_experiment_action_${configChange.experiment_key} -->`;
+            let message = `
+Experiment ${configChange.experiment_key} is now running...   
+`;
+            await this.upsertComment(commentKey, message);
+            const experiment = await this.runExperiment(configChange);
+            const experimentResult = await this.getExperimentResult(experiment);
+            await sleep(5000);
+            const headers = ['Col1', 'Col2', 'Col3', 'Col4', 'Col5'];
+            const rows = [
+                ['test1', 'test2', 'test3', 'test4', 'test5'],
+                ['test1', 'test2', 'test3', 'test4', 'test5']
+            ];
+            message = `
+Experiment ${configChange.experiment_key} has finished running!
+
+Result:
+${JSON.stringify(experimentResult)}
+
+${generateMarkdownTable(headers, rows)}
+`;
+            this.upsertComment(commentKey, message);
+        }
     }
     async validateInput() {
         const apiKey = coreExports.getInput('api_key');
@@ -38708,30 +38739,42 @@ class OrqExperimentAction {
         }
         this.path = path;
     }
-    async run() {
-        if (!this.pullRequest) {
-            throw new Error('Pull request not found!');
+    async runExperiment(payload) {
+        const response = await fetch(`${this.orqApiBaseUrl}/v2/deployments/${payload.deployment_key}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${this.apiKey}`
+            },
+            body: JSON.stringify({
+                type: 'deployment_experiment',
+                experiment_key: payload.experiment_key,
+                dataset_id: payload.dataset_id,
+                ...(payload.context && {
+                    context: payload.context
+                }),
+                ...(payload.evaluators && {
+                    evaluators: payload.evaluators
+                })
+            })
+        });
+        const data = (await response.json());
+        return data;
+    }
+    async getExperimentResult(payload) {
+        while (true) {
+            const response = await fetch(`${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${this.apiKey}`
+                }
+            });
+            const data = (await response.json());
+            if (data.status === 'completed') {
+                return data;
+            }
         }
-        const configChanges = await this.getConfigChanges();
-        const commentKey = '<!-- orq_experiment_action_12345 -->';
-        let message = `
-Orq ai experiment run - in progress      
-`;
-        await this.upsertComment(commentKey, message);
-        await sleep(5000);
-        const headers = ['Col1', 'Col2', 'Col3', 'Col4', 'Col5'];
-        const rows = [
-            ['test1', 'test2', 'test3', 'test4', 'test5'],
-            ['test1', 'test2', 'test3', 'test4', 'test5']
-        ];
-        message = `
-Orq ai experiment run - succeeded
-
-has changes -> ${configChanges.join(',')}
-
-${generateMarkdownTable(headers, rows)}
-`;
-        this.upsertComment(commentKey, message);
     }
     async findExistingComment(key) {
         const { owner, repo, issue_number } = this.pullRequest;
@@ -38766,10 +38809,6 @@ ${generateMarkdownTable(headers, rows)}
             body: `${key}\n${message}`
         });
     }
-    async runExperiment(payload) {
-        coreExports.info(`payload: ${payload}`);
-        coreExports.info(`apiKey: ${this.apiKey}`);
-    }
     async hasConfigChange(filename, base_sha) {
         const newContent = YAML.parse(fs.readFileSync(filename).toString());
         const { repo } = this.context;
@@ -38781,11 +38820,11 @@ ${generateMarkdownTable(headers, rows)}
         });
         const githubContentFile = response.data;
         const originalContent = YAML.parse(decodeBase64String(githubContentFile.content));
-        if (originalContent.deployment_id !== newContent.deployment_id) {
-            return true;
+        if (originalContent.deployment_key !== newContent.deployment_key) {
+            return newContent;
         }
         if (originalContent.dataset_id !== newContent.dataset_id) {
-            return true;
+            return newContent;
         }
         return null;
     }
@@ -38804,8 +38843,9 @@ ${generateMarkdownTable(headers, rows)}
             const files = response.data.files ?? [];
             for (const file of files) {
                 if (file.filename.startsWith(this.path) && file.status === 'modified') {
-                    if (await this.hasConfigChange(file.filename, base)) {
-                        fileChanges.push(file.filename);
+                    const newChange = await this.hasConfigChange(file.filename, base);
+                    if (newChange !== null) {
+                        fileChanges.push(newChange);
                     }
                 }
             }

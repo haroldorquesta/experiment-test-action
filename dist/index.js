@@ -38740,6 +38740,7 @@ ${generateMarkdownTable(headers, rows)}
         this.path = path;
     }
     async runExperiment(payload) {
+        coreExports.info(`Run experiment ${JSON.stringify(payload)}`);
         const response = await fetch(`${this.orqApiBaseUrl}/v2/deployments/${payload.deployment_key}`, {
             method: 'POST',
             headers: {
@@ -38759,10 +38760,12 @@ ${generateMarkdownTable(headers, rows)}
             })
         });
         const data = (await response.json());
+        coreExports.info(`Run experiment return ${JSON.stringify(data)}`);
         return data;
     }
     async getExperimentResult(payload) {
         while (true) {
+            coreExports.info(`Get experiment manifest status ${JSON.stringify(payload)}`);
             const response = await fetch(`${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`, {
                 method: 'GET',
                 headers: {
@@ -38771,6 +38774,7 @@ ${generateMarkdownTable(headers, rows)}
                 }
             });
             const data = (await response.json());
+            coreExports.info(`Get experiment manifest status result ${JSON.stringify(data)}`);
             if (data.status === 'completed') {
                 return data;
             }

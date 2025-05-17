@@ -91,6 +91,7 @@ ${generateMarkdownTable(headers, rows)}
   }
 
   private async runExperiment(payload: DeploymentExperimentRunPayload) {
+    core.info(`Run experiment ${JSON.stringify(payload)}`)
     const response = await fetch(
       `${this.orqApiBaseUrl}/v2/deployments/${payload.deployment_key}`,
       {
@@ -115,6 +116,8 @@ ${generateMarkdownTable(headers, rows)}
 
     const data = (await response.json()) as DeploymentExperimentRunResponse
 
+    core.info(`Run experiment return ${JSON.stringify(data)}`)
+
     return data
   }
 
@@ -122,6 +125,7 @@ ${generateMarkdownTable(headers, rows)}
     payload: DeploymentExperimentRunResponse
   ): Promise<ExperimentResult> {
     while (true) {
+      core.info(`Get experiment manifest status ${JSON.stringify(payload)}`)
       const response = await fetch(
         `${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`,
         {
@@ -134,6 +138,8 @@ ${generateMarkdownTable(headers, rows)}
       )
 
       const data = (await response.json()) as ExperimentResult
+
+      core.info(`Get experiment manifest status result ${JSON.stringify(data)}`)
 
       if (data.status === 'completed') {
         return data

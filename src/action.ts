@@ -93,7 +93,7 @@ ${generateMarkdownTable(headers, rows)}
   private async runExperiment(payload: DeploymentExperimentRunPayload) {
     core.info(`Run experiment ${JSON.stringify(payload)}`)
     const response = await fetch(
-      `${this.orqApiBaseUrl}/v2/deployments/${payload.deployment_key}`,
+      `${this.orqApiBaseUrl}/v2/deployments/${payload.deployment_key}/experiment`,
       {
         method: 'POST',
         headers: {

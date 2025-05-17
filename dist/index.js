@@ -38724,6 +38724,7 @@ Experiment ${configChange.experiment_key} is now running...
                         }
                     }
                 }
+                rows.push(manifestRow);
             }
             message = `
 Experiment ${configChange.experiment_key} has finished running!

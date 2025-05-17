@@ -76,6 +76,8 @@ Experiment ${configChange.experiment_key} is now running...
             }
           }
         }
+
+        rows.push(manifestRow)
       }
 
       message = `

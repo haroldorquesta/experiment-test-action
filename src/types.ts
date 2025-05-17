@@ -52,9 +52,60 @@ export type DeploymentExperimentRunResponse = {
   experiment_run_id: string
 }
 
-export type ExperimentResult = {
+type ExperimentManifetColumn = {
+  display_name: string
+  key: string
+  column_type: string
+  id: string
+  position: number
+  active: boolean
+  config: Record<string, unknown>
+}
+
+export type ExperimentManifest = {
+  sheet_id: string
+  key: string
+  columns: ExperimentManifetColumn[]
+  status: string
+  created_by_id: string
+  updated_by_id: string
+  created: string
+  updated: string
+  dataset_id: string
+  dataset_version_id: string
   deployment_id: string
   deployment_variant_id: string
   deployment_variant_version: string
+  stats: {
+    total_cost: number
+  }
+  started_at: string
+  completed_at: string
+}
+
+type ExperimentManifestRow = {
+  type: string
+  _id: string
+  row_id: string
+  column_id: string
+  value?: string
+  status?: string
+  created_by_id?: string
+  updated_by_id?: string
+  created?: string
+  updated?: string
+}
+
+export type ExperimentManifestRows = {
   status: string
+  sheet_id: string
+  manifest_id: string
+  cells: ExperimentManifestRow[]
+  created_by_id: string
+  updated_by_id: string
+  created: string
+  updated: string
+  statusCode: number
+  retry_count: number
+  run_at: string
 }

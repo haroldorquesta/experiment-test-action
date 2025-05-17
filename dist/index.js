@@ -38711,16 +38711,15 @@ Experiment ${configChange.experiment_key} is now running...
             const experiment = await this.runExperiment(configChange);
             const experimentResult = await this.getExperimentResult(experiment);
             await sleep(5000);
-            const headers = ['Col1', 'Col2', 'Col3', 'Col4', 'Col5'];
-            const rows = [
-                ['test1', 'test2', 'test3', 'test4', 'test5'],
-                ['test1', 'test2', 'test3', 'test4', 'test5']
-            ];
+            const headers = experimentResult.experimentManifest.columns.map((column) => column.display_name);
+            const rows = [];
+            if (experimentResult.experimentManifestRows) {
+                for (const row of experimentResult.experimentManifestRows) {
+                    rows.push(row.cells.map((cell) => cell.value ?? ''));
+                }
+            }
             message = `
 Experiment ${configChange.experiment_key} has finished running!
-
-Result:
-${JSON.stringify(experimentResult)}
 
 ${generateMarkdownTable(headers, rows)}
 `;
@@ -38766,17 +38765,27 @@ ${generateMarkdownTable(headers, rows)}
     async getExperimentResult(payload) {
         while (true) {
             coreExports.info(`Get experiment manifest status ${JSON.stringify(payload)}`);
-            const response = await fetch(`${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`, {
+            const experimentManifestResponse = await fetch(`${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${this.apiKey}`
                 }
             });
-            const data = (await response.json());
-            coreExports.info(`Get experiment manifest status result ${JSON.stringify(data)}`);
-            if (data.status === 'completed') {
-                return data;
+            const experimentManifest = (await experimentManifestResponse.json());
+            coreExports.info(`Get experiment manifest status result ${JSON.stringify(experimentManifest)}`);
+            if (experimentManifest.status === 'completed') {
+                const experimentManifestRowsResponse = await fetch(`${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/rows?manifest_id=${payload.experiment_run_id}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${this.apiKey}`
+                    }
+                });
+                return {
+                    experimentManifest,
+                    experimentManifestRows: (await experimentManifestRowsResponse.json())
+                };
             }
         }
     }

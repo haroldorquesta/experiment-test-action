@@ -96,7 +96,7 @@ type ExperimentManifestRow = {
   updated?: string
 }
 
-export type ExperimentManifestRows = {
+type ExperimentManifestRows = {
   status: string
   sheet_id: string
   manifest_id: string
@@ -108,4 +108,12 @@ export type ExperimentManifestRows = {
   statusCode: number
   retry_count: number
   run_at: string
+}
+
+export type PaginatedExperimentManifestRows = {
+  count: number
+  page: number
+  limit: number
+  totalPages: number
+  items: ExperimentManifestRows[]
 }

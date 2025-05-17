@@ -38713,10 +38713,8 @@ Experiment ${configChange.experiment_key} is now running...
             await sleep(5000);
             const headers = experimentResult.experimentManifest.columns.map((column) => column.display_name);
             const rows = [];
-            if (experimentResult.experimentManifestRows) {
-                for (const row of experimentResult.experimentManifestRows) {
-                    rows.push(row.cells.map((cell) => cell.value ?? ''));
-                }
+            for (const row of experimentResult.experimentManifestRows.items) {
+                rows.push(row.cells.map((cell) => cell.value ?? ''));
             }
             message = `
 Experiment ${configChange.experiment_key} has finished running!

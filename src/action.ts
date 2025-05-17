@@ -11,7 +11,7 @@ import type {
   GithubOctokit,
   GithubPullRequest,
   ExperimentManifest,
-  ExperimentManifestRows
+  PaginatedExperimentManifestRows
 } from './types.js'
 
 class OrqExperimentAction {
@@ -61,10 +61,8 @@ Experiment ${configChange.experiment_key} is now running...
 
       const rows = [] as string[][]
 
-      if (experimentResult.experimentManifestRows) {
-        for (const row of experimentResult.experimentManifestRows) {
-          rows.push(row.cells.map((cell) => cell.value ?? ''))
-        }
+      for (const row of experimentResult.experimentManifestRows.items) {
+        rows.push(row.cells.map((cell) => cell.value ?? ''))
       }
 
       message = `
@@ -160,7 +158,7 @@ ${generateMarkdownTable(headers, rows)}
         return {
           experimentManifest,
           experimentManifestRows:
-            (await experimentManifestRowsResponse.json()) as ExperimentManifestRows[]
+            (await experimentManifestRowsResponse.json()) as PaginatedExperimentManifestRows
         }
       }
     }

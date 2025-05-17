@@ -59,10 +59,23 @@ Experiment ${configChange.experiment_key} is now running...
         (column) => column.display_name
       )
 
+      const headerKeys = experimentResult.experimentManifest.columns.map(
+        (column) => column.column_type
+      )
+
       const rows = [] as string[][]
 
       for (const row of experimentResult.experimentManifestRows.items) {
-        rows.push(row.cells.map((cell) => cell.value ?? ''))
+        const manifestRow = []
+
+        for (const headerKey of headerKeys) {
+          for (const cell of row.cells) {
+            if (cell.type === headerKey) {
+              manifestRow.push(cell.value ?? '')
+              break
+            }
+          }
+        }
       }
 
       message = `

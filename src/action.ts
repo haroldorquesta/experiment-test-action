@@ -71,7 +71,21 @@ Experiment ${configChange.experiment_key} is now running...
         for (const headerKey of headerKeys) {
           for (const cell of row.cells) {
             if (cell.type === headerKey) {
-              manifestRow.push(cell.value ?? '')
+              // if (cell.type === 'metric') {
+              //   manifestRow.push(
+              //     (cell.value as unknown as {value: string}).value
+              //   )
+              // }
+              // if (typeof cell.value === 'object' && 'value' in cell.value) {
+              //   manifestRow.push(cell.value.value)
+              // }
+              // if (typeof cell.value === 'object' && 'value' in cell.value) {
+              //   manifestRow.push(cell.value.value)
+              // }
+              // if (typeof cell.value === 'object' && 'value' in cell.value) {
+              //   manifestRow.push(cell.value.value)
+              // }
+              manifestRow.push(JSON.stringify(cell.value))
               break
             }
           }

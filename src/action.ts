@@ -42,15 +42,26 @@ class OrqExperimentAction {
 
     const configChanges = await this.getConfigChanges()
 
+    const experimentRuns = [] as Promise<void>[]
+
     for (const configChange of configChanges) {
-      const commentKey = `<!-- orq_experiment_action_${configChange.experiment_key} -->`
+      const experimentRun = this.orchestrateExperimentRun(configChange)
+      experimentRuns.push(experimentRun)
+    }
+
+    await Promise.all(experimentRuns)
+  }
+
+  async orchestrateExperimentRun(runPayload: DeploymentExperimentRunPayload) {
+    try {
+      const commentKey = `<!-- orq_experiment_action_${runPayload.experiment_key} -->`
 
       let message = `
-Experiment ${configChange.experiment_key} is now running...   
-`
+  Experiment ${runPayload.experiment_key} is now running...   
+  `
       await this.upsertComment(commentKey, message)
 
-      const experiment = await this.runExperiment(configChange)
+      const experiment = await this.runExperiment(runPayload)
       const experimentResult = await this.getExperimentResult(experiment)
 
       await sleep(5000)
@@ -95,11 +106,14 @@ Experiment ${configChange.experiment_key} is now running...
       }
 
       message = `
-Experiment ${configChange.experiment_key} has finished running!
+Experiment ${runPayload.experiment_key} has finished running!
 
 ${generateMarkdownTable(headers, rows)}
 `
       this.upsertComment(commentKey, message)
+    } catch (error) {
+      console.error(error)
+      // TODO: error running experiment - handle error
     }
   }
 
@@ -235,37 +249,54 @@ ${generateMarkdownTable(headers, rows)}
   }
 
   async hasConfigChange(filename: string, base_sha: string) {
-    const newContent: DeploymentExperimentRunPayload = yaml.parse(
-      fs.readFileSync(filename).toString()
+    const newRunPayload: DeploymentExperimentRunPayload =
+      await this.getDeploymentExperimentRunPayload(filename)
+
+    const originalRunPayload = await this.getOriginalDeploymentRunPayload(
+      filename,
+      base_sha
     )
+
+    if (originalRunPayload.deployment_key !== newRunPayload.deployment_key) {
+      return newRunPayload
+    }
+
+    if (originalRunPayload.dataset_id !== newRunPayload.dataset_id) {
+      return newRunPayload
+    }
+
+    return null
+  }
+
+  async getOriginalDeploymentRunPayload(filename: string, commit_hash: string) {
     const { repo } = this.context
 
     const response = await this.octokit.rest.repos.getContent({
       owner: repo.owner,
       repo: repo.repo,
       path: filename,
-      ref: base_sha
+      ref: commit_hash
     })
 
     const githubContentFile = response.data as GithubContentFile
-    const originalContent: DeploymentExperimentRunPayload = yaml.parse(
+    const originalRunPayload: DeploymentExperimentRunPayload = yaml.parse(
       decodeBase64String(githubContentFile.content)
     )
 
-    if (originalContent.deployment_key !== newContent.deployment_key) {
-      return newContent
-    }
+    return originalRunPayload
+  }
 
-    if (originalContent.dataset_id !== newContent.dataset_id) {
-      return newContent
-    }
+  async getDeploymentExperimentRunPayload(filename: string) {
+    const payload: DeploymentExperimentRunPayload = yaml.parse(
+      fs.readFileSync(filename).toString()
+    )
 
-    return null
+    return payload
   }
 
   async getConfigChanges() {
     const { payload, repo } = this.context
-    const fileChanges = [] as DeploymentExperimentRunPayload[]
+    const payloadChanges = [] as DeploymentExperimentRunPayload[]
 
     if (payload) {
       const base = payload.pull_request?.base.sha
@@ -280,16 +311,25 @@ ${generateMarkdownTable(headers, rows)}
 
       const files = response.data.files ?? []
       for (const file of files) {
-        if (file.filename.startsWith(this.path) && file.status === 'modified') {
-          const newChange = await this.hasConfigChange(file.filename, base)
-          if (newChange !== null) {
-            fileChanges.push(newChange)
+        if (!file.filename.startsWith(this.path)) {
+          continue
+        }
+
+        if (file.status === 'modified') {
+          const runPayload = await this.hasConfigChange(file.filename, base)
+          if (runPayload !== null) {
+            payloadChanges.push(runPayload)
           }
+        } else if (file.status === 'added') {
+          const runPayload = await this.getDeploymentExperimentRunPayload(
+            file.filename
+          )
+          payloadChanges.push(runPayload)
         }
       }
     }
 
-    return fileChanges
+    return payloadChanges
   }
 }
 

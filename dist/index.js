@@ -38718,8 +38718,11 @@ class OrqExperimentAction {
             const experimentRun = await this.runExperiment(runPayload);
             // const experimentResult = await this.getExperimentResult(experimentRun)
             await sleep(5000);
-            const headers = ['Runs'];
-            const rows = [['1']];
+            const headers = ['Score', 'Average', 'Improvements', 'Regressions'];
+            const rows = [
+                ['Levenshtein', '85% (+1pp)', '🟢 6', '🔴 6'],
+                ['Duration', '1s (+0s)', '🟡', '🔴 20']
+            ];
             message = `## Orq Experiment report
 [Experiment ${runPayload.experiment_key}](${experimentRun.url})
 

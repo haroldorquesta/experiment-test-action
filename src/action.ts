@@ -2,7 +2,7 @@ import * as core from '@actions/core'
 import * as github from '@actions/github'
 import yaml from 'yaml'
 import * as fs from 'node:fs'
-import { decodeBase64String, generateMarkdownTable } from './utils.js'
+import { decodeBase64String, generateMarkdownTable, sleep } from './utils.js'
 import type {
   DeploymentExperimentRunResponse,
   DeploymentExperimentRunPayload,
@@ -63,7 +63,7 @@ class OrqExperimentAction {
       const experimentRun = await this.runExperiment(runPayload)
       // const experimentResult = await this.getExperimentResult(experimentRun)
 
-      // await sleep(5000)
+      await sleep(5000)
 
       const headers = ['Runs']
       const rows = [['1']]

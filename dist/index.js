@@ -38673,6 +38673,9 @@ function generateMarkdownTable(headers, rows) {
     }
     return table;
 }
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
 function decodeBase64String(message) {
     return Buffer.from(message, 'base64').toString('utf8');
 }
@@ -38714,7 +38717,7 @@ class OrqExperimentAction {
             await this.upsertComment(commentKey, message);
             const experimentRun = await this.runExperiment(runPayload);
             // const experimentResult = await this.getExperimentResult(experimentRun)
-            // await sleep(5000)
+            await sleep(5000);
             const headers = ['Runs'];
             const rows = [['1']];
             message = `## Orq Experiment report

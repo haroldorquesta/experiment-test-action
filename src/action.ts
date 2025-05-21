@@ -2,16 +2,16 @@ import * as core from '@actions/core'
 import * as github from '@actions/github'
 import yaml from 'yaml'
 import * as fs from 'node:fs'
-import { decodeBase64String, generateMarkdownTable, sleep } from './utils.js'
+import { decodeBase64String, generateMarkdownTable } from './utils.js'
 import type {
   DeploymentExperimentRunResponse,
   DeploymentExperimentRunPayload,
   GithubContentFile,
   GithubContext,
   GithubOctokit,
-  GithubPullRequest,
-  ExperimentManifest,
-  PaginatedExperimentManifestRows
+  GithubPullRequest
+  // ExperimentManifest,
+  // PaginatedExperimentManifestRows
 } from './types.js'
 
 class OrqExperimentAction {
@@ -56,57 +56,20 @@ class OrqExperimentAction {
     try {
       const commentKey = `<!-- orq_experiment_action_${runPayload.experiment_key} -->`
 
-      let message = `
-  Experiment ${runPayload.experiment_key} is now running...   
-  `
+      let message = `## Orq Experiment report
+### Running experiment ${runPayload.experiment_key}...`
       await this.upsertComment(commentKey, message)
 
-      const experiment = await this.runExperiment(runPayload)
-      const experimentResult = await this.getExperimentResult(experiment)
+      const experimentRun = await this.runExperiment(runPayload)
+      // const experimentResult = await this.getExperimentResult(experimentRun)
 
-      await sleep(5000)
+      // await sleep(5000)
 
-      const headers = experimentResult.experimentManifest.columns.map(
-        (column) => column.display_name
-      )
+      const headers = ['Runs']
+      const rows = [['1']]
 
-      const headerKeys = experimentResult.experimentManifest.columns.map(
-        (column) => column.column_type
-      )
-
-      const rows = [] as string[][]
-
-      for (const row of experimentResult.experimentManifestRows.items) {
-        const manifestRow = []
-
-        for (const headerKey of headerKeys) {
-          for (const cell of row.cells) {
-            if (cell.type === headerKey) {
-              // if (cell.type === 'metric') {
-              //   manifestRow.push(
-              //     (cell.value as unknown as {value: string}).value
-              //   )
-              // }
-              // if (typeof cell.value === 'object' && 'value' in cell.value) {
-              //   manifestRow.push(cell.value.value)
-              // }
-              // if (typeof cell.value === 'object' && 'value' in cell.value) {
-              //   manifestRow.push(cell.value.value)
-              // }
-              // if (typeof cell.value === 'object' && 'value' in cell.value) {
-              //   manifestRow.push(cell.value.value)
-              // }
-              manifestRow.push(JSON.stringify(cell.value))
-              break
-            }
-          }
-        }
-
-        rows.push(manifestRow)
-      }
-
-      message = `
-Experiment ${runPayload.experiment_key} has finished running!
+      message = `## Orq Experiment report
+[Experiment ${runPayload.experiment_key}](${experimentRun.url})
 
 ${generateMarkdownTable(headers, rows)}
 `
@@ -166,46 +129,46 @@ ${generateMarkdownTable(headers, rows)}
     return data
   }
 
-  private async getExperimentResult(payload: DeploymentExperimentRunResponse) {
-    while (true) {
-      core.info(`Get experiment manifest status ${JSON.stringify(payload)}`)
-      const experimentManifestResponse = await fetch(
-        `${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`
-          }
-        }
-      )
+  // private async getExperimentResult(payload: DeploymentExperimentRunResponse) {
+  // while (true) {
+  //   core.info(`Get experiment manifest status ${JSON.stringify(payload)}`)
+  //   const experimentManifestResponse = await fetch(
+  //     `${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`,
+  //     {
+  //       method: 'GET',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //         Authorization: `Bearer ${this.apiKey}`
+  //       }
+  //     }
+  //   )
 
-      const experimentManifest =
-        (await experimentManifestResponse.json()) as ExperimentManifest
+  //   const experimentManifest =
+  //     (await experimentManifestResponse.json()) as ExperimentManifest
 
-      core.info(
-        `Get experiment manifest status result ${JSON.stringify(experimentManifest)}`
-      )
+  //   core.info(
+  //     `Get experiment manifest status result ${JSON.stringify(experimentManifest)}`
+  //   )
 
-      if (experimentManifest.status === 'completed') {
-        const experimentManifestRowsResponse = await fetch(
-          `${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/rows?manifest_id=${payload.experiment_run_id}`,
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${this.apiKey}`
-            }
-          }
-        )
-        return {
-          experimentManifest,
-          experimentManifestRows:
-            (await experimentManifestRowsResponse.json()) as PaginatedExperimentManifestRows
-        }
-      }
-    }
-  }
+  //   if (experimentManifest.status === 'completed') {
+  //     const experimentManifestRowsResponse = await fetch(
+  //       `${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/rows?manifest_id=${payload.experiment_run_id}`,
+  //       {
+  //         method: 'GET',
+  //         headers: {
+  //           'Content-Type': 'application/json',
+  //           Authorization: `Bearer ${this.apiKey}`
+  //         }
+  //       }
+  //     )
+  //     return {
+  //       experimentManifest,
+  //       experimentManifestRows:
+  //         (await experimentManifestRowsResponse.json()) as PaginatedExperimentManifestRows
+  //     }
+  //   }
+  // }
+  // }
 
   private async findExistingComment(key: string): Promise<number | null> {
     const { owner, repo, issue_number } = this.pullRequest

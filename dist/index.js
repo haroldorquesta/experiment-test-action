@@ -38673,9 +38673,6 @@ function generateMarkdownTable(headers, rows) {
     }
     return table;
 }
-function sleep(ms) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-}
 function decodeBase64String(message) {
     return Buffer.from(message, 'base64').toString('utf8');
 }
@@ -38712,44 +38709,16 @@ class OrqExperimentAction {
     async orchestrateExperimentRun(runPayload) {
         try {
             const commentKey = `<!-- orq_experiment_action_${runPayload.experiment_key} -->`;
-            let message = `
-  Experiment ${runPayload.experiment_key} is now running...   
-  `;
+            let message = `## Orq Experiment report
+### Running experiment ${runPayload.experiment_key}...`;
             await this.upsertComment(commentKey, message);
-            const experiment = await this.runExperiment(runPayload);
-            const experimentResult = await this.getExperimentResult(experiment);
-            await sleep(5000);
-            const headers = experimentResult.experimentManifest.columns.map((column) => column.display_name);
-            const headerKeys = experimentResult.experimentManifest.columns.map((column) => column.column_type);
-            const rows = [];
-            for (const row of experimentResult.experimentManifestRows.items) {
-                const manifestRow = [];
-                for (const headerKey of headerKeys) {
-                    for (const cell of row.cells) {
-                        if (cell.type === headerKey) {
-                            // if (cell.type === 'metric') {
-                            //   manifestRow.push(
-                            //     (cell.value as unknown as {value: string}).value
-                            //   )
-                            // }
-                            // if (typeof cell.value === 'object' && 'value' in cell.value) {
-                            //   manifestRow.push(cell.value.value)
-                            // }
-                            // if (typeof cell.value === 'object' && 'value' in cell.value) {
-                            //   manifestRow.push(cell.value.value)
-                            // }
-                            // if (typeof cell.value === 'object' && 'value' in cell.value) {
-                            //   manifestRow.push(cell.value.value)
-                            // }
-                            manifestRow.push(JSON.stringify(cell.value));
-                            break;
-                        }
-                    }
-                }
-                rows.push(manifestRow);
-            }
-            message = `
-Experiment ${runPayload.experiment_key} has finished running!
+            const experimentRun = await this.runExperiment(runPayload);
+            // const experimentResult = await this.getExperimentResult(experimentRun)
+            // await sleep(5000)
+            const headers = ['Runs'];
+            const rows = [['1']];
+            message = `## Orq Experiment report
+[Experiment ${runPayload.experiment_key}](${experimentRun.url})
 
 ${generateMarkdownTable(headers, rows)}
 `;
@@ -38796,33 +38765,43 @@ ${generateMarkdownTable(headers, rows)}
         coreExports.info(`Run experiment return ${JSON.stringify(data)}`);
         return data;
     }
-    async getExperimentResult(payload) {
-        while (true) {
-            coreExports.info(`Get experiment manifest status ${JSON.stringify(payload)}`);
-            const experimentManifestResponse = await fetch(`${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${this.apiKey}`
-                }
-            });
-            const experimentManifest = (await experimentManifestResponse.json());
-            coreExports.info(`Get experiment manifest status result ${JSON.stringify(experimentManifest)}`);
-            if (experimentManifest.status === 'completed') {
-                const experimentManifestRowsResponse = await fetch(`${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/rows?manifest_id=${payload.experiment_run_id}`, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        Authorization: `Bearer ${this.apiKey}`
-                    }
-                });
-                return {
-                    experimentManifest,
-                    experimentManifestRows: (await experimentManifestRowsResponse.json())
-                };
-            }
-        }
-    }
+    // private async getExperimentResult(payload: DeploymentExperimentRunResponse) {
+    // while (true) {
+    //   core.info(`Get experiment manifest status ${JSON.stringify(payload)}`)
+    //   const experimentManifestResponse = await fetch(
+    //     `${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`,
+    //     {
+    //       method: 'GET',
+    //       headers: {
+    //         'Content-Type': 'application/json',
+    //         Authorization: `Bearer ${this.apiKey}`
+    //       }
+    //     }
+    //   )
+    //   const experimentManifest =
+    //     (await experimentManifestResponse.json()) as ExperimentManifest
+    //   core.info(
+    //     `Get experiment manifest status result ${JSON.stringify(experimentManifest)}`
+    //   )
+    //   if (experimentManifest.status === 'completed') {
+    //     const experimentManifestRowsResponse = await fetch(
+    //       `${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/rows?manifest_id=${payload.experiment_run_id}`,
+    //       {
+    //         method: 'GET',
+    //         headers: {
+    //           'Content-Type': 'application/json',
+    //           Authorization: `Bearer ${this.apiKey}`
+    //         }
+    //       }
+    //     )
+    //     return {
+    //       experimentManifest,
+    //       experimentManifestRows:
+    //         (await experimentManifestRowsResponse.json()) as PaginatedExperimentManifestRows
+    //     }
+    //   }
+    // }
+    // }
     async findExistingComment(key) {
         const { owner, repo, issue_number } = this.pullRequest;
         const { data: comments } = await this.octokit.rest.issues.listComments({

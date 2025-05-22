@@ -38710,8 +38710,8 @@ class OrqExperimentAction {
         await Promise.all(experimentRuns);
     }
     async orchestrateExperimentRun(runPayload) {
+        const commentKey = `<!-- orq_experiment_action_${runPayload.experiment_key} -->`;
         try {
-            const commentKey = `<!-- orq_experiment_action_${runPayload.experiment_key} -->`;
             let message = `## Orq Experiment report
 ### Running experiment ${runPayload.experiment_key}...`;
             await this.upsertComment(commentKey, message);
@@ -38723,7 +38723,7 @@ class OrqExperimentAction {
                 ['Levenshtein', '85% (+1pp)', '🟢 6', '🔴 6'],
                 ['Duration', '1s (+0s)', '🟡', '🔴 20']
             ];
-            message = `## Orq Experiment report
+            message = `## Orq experiment report
 [Experiment ${runPayload.experiment_key}](${experimentRun.url})
 
 ${generateMarkdownTable(headers, rows)}
@@ -38731,9 +38731,16 @@ ${generateMarkdownTable(headers, rows)}
             this.upsertComment(commentKey, message);
         }
         catch (error) {
-            console.error(error);
-            // TODO: error running experiment - handle error
+            this.showErrorComment(commentKey, runPayload.experiment_key, error);
         }
+    }
+    async showErrorComment(commentKey, experimentKey, error) {
+        const message = `## Orq Experiment report
+### Failed to run experiment ${experimentKey}: 
+
+Error: ${error}
+`;
+        await this.upsertComment(commentKey, message);
     }
     async validateInput() {
         const apiKey = coreExports.getInput('api_key');

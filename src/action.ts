@@ -10,8 +10,6 @@ import type {
   GithubContext,
   GithubOctokit,
   GithubPullRequest
-  // ExperimentManifest,
-  // PaginatedExperimentManifestRows
 } from './types.js'
 
 class OrqExperimentAction {
@@ -53,9 +51,9 @@ class OrqExperimentAction {
   }
 
   async orchestrateExperimentRun(runPayload: DeploymentExperimentRunPayload) {
-    try {
-      const commentKey = `<!-- orq_experiment_action_${runPayload.experiment_key} -->`
+    const commentKey = `<!-- orq_experiment_action_${runPayload.experiment_key} -->`
 
+    try {
       let message = `## Orq Experiment report
 ### Running experiment ${runPayload.experiment_key}...`
       await this.upsertComment(commentKey, message)
@@ -71,16 +69,28 @@ class OrqExperimentAction {
         ['Duration', '1s (+0s)', '🟡', '🔴 20']
       ]
 
-      message = `## Orq Experiment report
+      message = `## Orq experiment report
 [Experiment ${runPayload.experiment_key}](${experimentRun.url})
 
 ${generateMarkdownTable(headers, rows)}
 `
       this.upsertComment(commentKey, message)
     } catch (error) {
-      console.error(error)
-      // TODO: error running experiment - handle error
+      this.showErrorComment(commentKey, runPayload.experiment_key, error)
     }
+  }
+
+  async showErrorComment(
+    commentKey: string,
+    experimentKey: string,
+    error: unknown
+  ) {
+    const message = `## Orq Experiment report
+### Failed to run experiment ${experimentKey}: 
+
+Error: ${error}
+`
+    await this.upsertComment(commentKey, message)
   }
 
   async validateInput(): Promise<void> {

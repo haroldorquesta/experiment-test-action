@@ -27,4 +27,4 @@ inputs:
 
 runs:
   using: node20
-  main: dist/experiment/index.js
+  main: ../../dist/experiment/index.js

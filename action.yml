@@ -1,30 +1,11 @@
-name: 'Orq test experiment'
-description: 'Automatically run experiment on your project using Orq'
-author: 'haroldorquesta'
-
-# Add your action's branding here. This will appear on the GitHub Marketplace.
-branding:
-  icon: heart
-  color: red
-
-# Define your inputs here.
-inputs:
-  api_key:
-    description: Orq api key
-    required: true
-  path:
-    description: Yaml config path
-    required: true
-  github_token:
-    description: 'Your GitHub token'
-    required: true
-    default: ${{ github.token }}
-
-# Define your outputs here.
-# outputs:
-#   time:
-#     description: Your output description here
-
+name: 'Orq Actions'
+description: "Don't use this action directly."
+author: 'Orq'
 runs:
-  using: node20
-  main: dist/index.js
+  using: 'composite'
+  steps:
+    - name: 'Warning'
+      run: |
+        echo "Don't use this action directly."
+        exit 1
+      shell: bash

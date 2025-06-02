@@ -9,8 +9,8 @@ export function generateMarkdownTable(headers: string[], rows: string[][]) {
   return table
 }
 
-export function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+export function sleep(seconds = 5) {
+  return new Promise((resolve) => setTimeout(resolve, seconds * 1000))
 }
 
 export function decodeBase64String(message: string) {

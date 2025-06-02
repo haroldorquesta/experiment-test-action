@@ -1,12 +1,7 @@
 import * as core from '@actions/core'
 import OrqExperimentAction from './action.js'
 
-/**
- * The main function for the action.
- *
- * @returns Resolves when the action is complete.
- */
-export async function run(): Promise<void> {
+async function run(): Promise<void> {
   try {
     const action = new OrqExperimentAction()
     await action.validateInput()
@@ -16,3 +11,5 @@ export async function run(): Promise<void> {
     if (error instanceof Error) core.setFailed(error.message)
   }
 }
+
+run()

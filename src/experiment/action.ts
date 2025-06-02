@@ -9,8 +9,12 @@ import type {
   GithubContentFile,
   GithubContext,
   GithubOctokit,
-  GithubPullRequest
+  GithubPullRequest,
+  ExperimentManifest,
+  PaginatedExperimentManifestRows,
+  Experiment
 } from './types.js'
+import { SheetRunStatus } from './enums.js'
 
 class OrqExperimentAction {
   private octokit: GithubOctokit
@@ -59,18 +63,21 @@ class OrqExperimentAction {
       await this.upsertComment(commentKey, message)
 
       const experimentRun = await this.runExperiment(runPayload)
-      // const experimentResult = await this.getExperimentResult(experimentRun)
-
-      await sleep(5000)
+      const experiment = await this.getExperiment(experimentRun.experiment_id)
+      //const experimentResult =
+      await this.getExperimentManifestResult(experimentRun)
 
       const headers = ['Score', 'Average', 'Improvements', 'Regressions']
-      const rows = [
+      const rows = experiment.unique_evaluators.map((evaluator) => {
+        return [evaluator.evaluator_name, '85% (+1pp)', '🟢 6', '🔴 6']
+      })
+      /*[
         ['Levenshtein', '85% (+1pp)', '🟢 6', '🔴 6'],
         ['Duration', '1s (+0s)', '🟡', '🔴 20']
-      ]
+      ]*/
 
       message = `## Orq experiment report
-[Experiment ${runPayload.experiment_key}](${experimentRun.url})
+[Experiment ${runPayload.experiment_key} (${experimentRun.experiment_run_id})](${experimentRun.url})
 
 ${generateMarkdownTable(headers, rows)}
 `
@@ -86,9 +93,9 @@ ${generateMarkdownTable(headers, rows)}
     error: unknown
   ) {
     const message = `## Orq Experiment report
-### Failed to run experiment ${experimentKey}: 
+### Experiment ${experimentKey}: 
 
-Error: ${error}
+🔴 Error: ${error}
 `
     await this.upsertComment(commentKey, message)
   }
@@ -109,6 +116,25 @@ Error: ${error}
     }
 
     this.path = path
+  }
+
+  private async getExperiment(experimentId: string) {
+    const experimentResponse = await fetch(
+      `${this.orqApiBaseUrl}/v2/spreadsheets/${experimentId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${this.apiKey}`
+        }
+      }
+    )
+
+    const experiment = (await experimentResponse.json()) as Experiment
+
+    core.info(`Get experiment result ${JSON.stringify(experiment)}`)
+
+    return experiment
   }
 
   private async runExperiment(payload: DeploymentExperimentRunPayload) {
@@ -142,46 +168,54 @@ Error: ${error}
     return data
   }
 
-  // private async getExperimentResult(payload: DeploymentExperimentRunResponse) {
-  // while (true) {
-  //   core.info(`Get experiment manifest status ${JSON.stringify(payload)}`)
-  //   const experimentManifestResponse = await fetch(
-  //     `${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`,
-  //     {
-  //       method: 'GET',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //         Authorization: `Bearer ${this.apiKey}`
-  //       }
-  //     }
-  //   )
+  private async getExperimentManifestResult(
+    payload: DeploymentExperimentRunResponse
+  ) {
+    while (true) {
+      core.info(`Get experiment manifest status ${JSON.stringify(payload)}`)
+      const experimentManifestResponse = await fetch(
+        `${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`
+          }
+        }
+      )
 
-  //   const experimentManifest =
-  //     (await experimentManifestResponse.json()) as ExperimentManifest
+      const experimentManifest =
+        (await experimentManifestResponse.json()) as ExperimentManifest
 
-  //   core.info(
-  //     `Get experiment manifest status result ${JSON.stringify(experimentManifest)}`
-  //   )
+      core.info(
+        `Get experiment manifest status result ${JSON.stringify(experimentManifest)}`
+      )
 
-  //   if (experimentManifest.status === 'completed') {
-  //     const experimentManifestRowsResponse = await fetch(
-  //       `${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/rows?manifest_id=${payload.experiment_run_id}`,
-  //       {
-  //         method: 'GET',
-  //         headers: {
-  //           'Content-Type': 'application/json',
-  //           Authorization: `Bearer ${this.apiKey}`
-  //         }
-  //       }
-  //     )
-  //     return {
-  //       experimentManifest,
-  //       experimentManifestRows:
-  //         (await experimentManifestRowsResponse.json()) as PaginatedExperimentManifestRows
-  //     }
-  //   }
-  // }
-  // }
+      if (experimentManifest.status === SheetRunStatus.COMPLETED) {
+        const experimentManifestRowsResponse = await fetch(
+          `${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/rows?manifest_id=${payload.experiment_run_id}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${this.apiKey}`
+            }
+          }
+        )
+        return {
+          experimentManifest,
+          experimentManifestRows:
+            (await experimentManifestRowsResponse.json()) as PaginatedExperimentManifestRows
+        }
+      } else if (experimentManifest.status === SheetRunStatus.CANCELLED) {
+        throw new Error('Experiment was cancelled!')
+      } else if (experimentManifest.status === SheetRunStatus.FAILED) {
+        throw new Error('Experiment failed to run!')
+      }
+
+      await sleep(3)
+    }
+  }
 
   private async findExistingComment(key: string): Promise<number | null> {
     const { owner, repo, issue_number } = this.pullRequest

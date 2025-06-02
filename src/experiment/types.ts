@@ -117,3 +117,31 @@ export type PaginatedExperimentManifestRows = {
   totalPages: number
   items: ExperimentManifestRows[]
 }
+
+type ExperimentEval = {
+  evaluator_id: string
+  evaluator_type: string
+  evaluator_key: string
+  evaluator_name: string
+}
+
+export type Experiment = {
+  _id: string
+  type: string
+  dataset_id: string
+  dataset_version_id: string
+  workspace_id: string
+  project_id: string
+  display_name: string
+  state: {
+    selected_manifest_id: string
+    row_height_level: number
+  }
+  deployment_id: string
+  deployment_variant_id: string
+  deployment_variant_version: string
+  created: string
+  updated: string
+  updated_by_id: string
+  unique_evaluators: ExperimentEval[]
+}

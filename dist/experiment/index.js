@@ -38790,13 +38790,16 @@ class OrqApiClient {
         return this.makeRequest(`/v2/spreadsheets/${experimentId}/rows?manifest_id=${experimentRunId}`, { method: 'GET' });
     }
     async getExperimentRunAverageMetrics(experimentId, experimentRunId) {
-        const experimentManifestPaged = await this.makeRequest(`/v2/spreadsheets/${experimentId}/manifests?status=completed&limit=10`, {
+        const experimentManifestPaged = await this.makeRequest(`/v2/spreadsheets/${experimentId}/manifests`, {
             method: 'GET'
         });
         const experimentManifests = experimentManifestPaged.items;
         coreExports.info(`Paginated manifests ${JSON.stringify(experimentManifests)}`);
-        const currentRun = experimentManifests.find((manifest) => manifest._id === experimentRunId);
-        const previousRun = experimentManifests.find((manifest) => manifest._id !== experimentRunId && manifest.status === 'completed');
+        const currentRunIndex = experimentManifests.findIndex((manifest) => manifest._id === experimentRunId);
+        const currentRun = currentRunIndex !== -1 ? experimentManifests[currentRunIndex] : null;
+        const previousRun = currentRunIndex !== -1 && currentRunIndex + 1 < experimentManifests.length
+            ? experimentManifests[currentRunIndex + 1]
+            : null;
         return [currentRun || null, previousRun || null];
     }
 }

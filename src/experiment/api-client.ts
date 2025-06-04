@@ -112,20 +112,22 @@ export class OrqApiClient {
   ): Promise<[ExperimentManifest | null, ExperimentManifest | null]> {
     const experimentManifestPaged = await this.makeRequest<{
       items: ExperimentManifest[]
-    }>(`/v2/spreadsheets/${experimentId}/manifests?status=completed&limit=10`, {
+    }>(`/v2/spreadsheets/${experimentId}/manifests`, {
       method: 'GET'
     })
 
     const experimentManifests = experimentManifestPaged.items
     core.info(`Paginated manifests ${JSON.stringify(experimentManifests)}`)
 
-    const currentRun = experimentManifests.find(
+    const currentRunIndex = experimentManifests.findIndex(
       (manifest) => manifest._id === experimentRunId
     )
-    const previousRun = experimentManifests.find(
-      (manifest) =>
-        manifest._id !== experimentRunId && manifest.status === 'completed'
-    )
+    const currentRun =
+      currentRunIndex !== -1 ? experimentManifests[currentRunIndex] : null
+    const previousRun =
+      currentRunIndex !== -1 && currentRunIndex + 1 < experimentManifests.length
+        ? experimentManifests[currentRunIndex + 1]
+        : null
 
     return [currentRun || null, previousRun || null]
   }

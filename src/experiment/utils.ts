@@ -57,6 +57,15 @@ export function formatNumber(value: number): string {
   if (value % 1 === 0) {
     return value.toString()
   }
-  // Format to 2 decimal places
-  return value.toFixed(2)
+
+  // For very small numbers or numbers that need more precision,
+  // convert to string and remove trailing zeros
+  const str = value.toString()
+  if (str.includes('e') || value < 0.01) {
+    // Handle scientific notation or very small numbers
+    return parseFloat(value.toString()).toString()
+  }
+
+  // For regular decimals, format to 2 decimal places and remove trailing zeros
+  return parseFloat(value.toFixed(2)).toString()
 }

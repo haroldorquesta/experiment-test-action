@@ -237,8 +237,8 @@ class OrqExperimentAction {
     previousScore: number
   ): string {
     const diff = currentScore - previousScore
-    if (diff === 0) return currentScore.toString()
-    return `${currentScore} ${diff > 0 ? `(+${formatNumber(diff)})` : `(${formatNumber(diff)})`}`
+    if (diff === 0) return formatNumber(currentScore).toString()
+    return `${formatNumber(currentScore)} ${diff > 0 ? `(+${formatNumber(diff)})` : `(${formatNumber(diff)})`}`
   }
 
   private formatImprovementsRegressions(

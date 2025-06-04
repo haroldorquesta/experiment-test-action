@@ -38723,8 +38723,6 @@ class OrqExperimentAction {
         const normalizeMetrics = {};
         for (const metricKey of Object.keys(metrics)) {
             const newMetricKey = metricKey.split('_').slice(1).join('_');
-            if (['orq_cost', 'orq_latency'].includes(newMetricKey))
-                continue;
             normalizeMetrics[newMetricKey] = metrics[metricKey];
         }
         return normalizeMetrics;
@@ -38739,6 +38737,9 @@ class OrqExperimentAction {
                 if ('config' in column &&
                     'evaluator_id' in column.config &&
                     normalizeEvalKey === column.config['evaluator_id']) {
+                    mapper[evalKey] = column.id;
+                }
+                if (column.key === normalizeEvalKey) {
                     mapper[evalKey] = column.id;
                 }
             }
@@ -38756,8 +38757,6 @@ class OrqExperimentAction {
         coreExports.info(`currentRunMetrics ${JSON.stringify(currentRunMetrics)}`);
         coreExports.info(`previousRunMetrics ${JSON.stringify(previousRunMetrics)}`);
         for (const evaluator of uniqueEvals) {
-            if (['cost', 'latency'].includes(evaluator.evaluator_key))
-                continue;
             coreExports.info(`evaluator ${JSON.stringify(evaluator)}`);
             const evalColumnId = evalColumnIdMapper[evaluator.evaluator_id];
             const evalValues = [];
@@ -38938,7 +38937,7 @@ class OrqExperimentAction {
                 }
                 evals.push([
                     `${evaluator.evaluator_name} - Recall`,
-                    `${currentAvgScore}% ${diffAverageScore === 0 ? '' : diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${diffAverageScore}pp)`}`,
+                    `${currentAvgScore} ${diffAverageScore === 0 ? '' : diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${Math.abs(diffAverageScore)}pp)`}`,
                     `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
                     `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
                 ]);

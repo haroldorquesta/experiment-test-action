@@ -117,8 +117,7 @@ class OrqExperimentAction {
     core.info(`previousRunMetrics ${JSON.stringify(previousRunMetrics)}`)
 
     for (const evaluator of uniqueEvals) {
-      if (['orq_cost', 'orq_latency'].includes(evaluator.evaluator_key))
-        continue
+      if (['cost', 'latency'].includes(evaluator.evaluator_key)) continue
 
       core.info(`evaluator ${JSON.stringify(evaluator)}`)
       const evalColumnId = evalColumnIdMapper[evaluator.evaluator_id]
@@ -127,8 +126,8 @@ class OrqExperimentAction {
       const previousEvalValues = [] as Record<string, number>[]
 
       for (const row of currentManifestRows.items) {
+        const mapper = {} as Record<string, number>
         for (const cell of row.cells) {
-          const mapper = {} as Record<string, number>
           if (cell.column_id === evalColumnId) {
             if (cell.value.type === 'number') {
               mapper[evaluator.evaluator_id] = cell.value.value as number
@@ -197,16 +196,15 @@ class OrqExperimentAction {
                 rougeScoreValue.rouge_l.recall
             }
           }
-
-          evalValues.push(mapper)
         }
+        evalValues.push(mapper)
       }
 
       core.info(`Evals values ${JSON.stringify(evalValues)}`)
 
       for (const row of previousManifestRows.items) {
+        const mapper = {} as Record<string, number>
         for (const cell of row.cells) {
-          const mapper = {} as Record<string, number>
           if (cell.column_id === evalColumnId) {
             if (cell.value.type === 'number') {
               mapper[evaluator.evaluator_id] = cell.value.value as number
@@ -275,9 +273,9 @@ class OrqExperimentAction {
                 rougeScoreValue.rouge_l.recall
             }
           }
-
-          previousEvalValues.push(mapper)
         }
+
+        previousEvalValues.push(mapper)
       }
 
       core.info(`Evals values ${JSON.stringify(previousEvalValues)}`)

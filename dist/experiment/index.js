@@ -38756,15 +38756,15 @@ class OrqExperimentAction {
         coreExports.info(`currentRunMetrics ${JSON.stringify(currentRunMetrics)}`);
         coreExports.info(`previousRunMetrics ${JSON.stringify(previousRunMetrics)}`);
         for (const evaluator of uniqueEvals) {
-            if (['orq_cost', 'orq_latency'].includes(evaluator.evaluator_key))
+            if (['cost', 'latency'].includes(evaluator.evaluator_key))
                 continue;
             coreExports.info(`evaluator ${JSON.stringify(evaluator)}`);
             const evalColumnId = evalColumnIdMapper[evaluator.evaluator_id];
             const evalValues = [];
             const previousEvalValues = [];
             for (const row of currentManifestRows.items) {
+                const mapper = {};
                 for (const cell of row.cells) {
-                    const mapper = {};
                     if (cell.column_id === evalColumnId) {
                         if (cell.value.type === 'number') {
                             mapper[evaluator.evaluator_id] = cell.value.value;
@@ -38816,13 +38816,13 @@ class OrqExperimentAction {
                                 rougeScoreValue.rouge_l.recall;
                         }
                     }
-                    evalValues.push(mapper);
                 }
+                evalValues.push(mapper);
             }
             coreExports.info(`Evals values ${JSON.stringify(evalValues)}`);
             for (const row of previousManifestRows.items) {
+                const mapper = {};
                 for (const cell of row.cells) {
-                    const mapper = {};
                     if (cell.column_id === evalColumnId) {
                         if (cell.value.type === 'number') {
                             mapper[evaluator.evaluator_id] = cell.value.value;
@@ -38874,8 +38874,8 @@ class OrqExperimentAction {
                                 rougeScoreValue.rouge_l.recall;
                         }
                     }
-                    previousEvalValues.push(mapper);
                 }
+                previousEvalValues.push(mapper);
             }
             coreExports.info(`Evals values ${JSON.stringify(previousEvalValues)}`);
             if (evaluator.evaluator_key === 'bert_score') {

@@ -63,6 +63,7 @@ type ExperimentManifetColumn = {
 }
 
 export type ExperimentManifest = {
+  _id: string
   sheet_id: string
   key: string
   columns: ExperimentManifetColumn[]
@@ -81,6 +82,7 @@ export type ExperimentManifest = {
   }
   started_at: string
   completed_at: string
+  metrics: Record<string, number>
 }
 
 type ExperimentManifestRow = {
@@ -88,7 +90,10 @@ type ExperimentManifestRow = {
   _id: string
   row_id: string
   column_id: string
-  value?: string
+  value: {
+    type: string
+    value: unknown
+  }
   status?: string
   created_by_id?: string
   updated_by_id?: string

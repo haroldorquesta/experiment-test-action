@@ -301,9 +301,9 @@ class OrqExperimentAction {
 
         evals.push([
           `${evaluator.evaluator_name} - F1`,
-          `${currentAvgScore} (${diffAverageScore > 0 ? '+' : '-'}${diffAverageScore}pp)`,
-          improvements.toString(),
-          regressions.toString()
+          `${currentAvgScore} ${diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${diffAverageScore}pp)`}`,
+          `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
+          `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
         ])
 
         evaluator_id = `${evaluator.evaluator_id}_precision`
@@ -326,7 +326,7 @@ class OrqExperimentAction {
 
         evals.push([
           `${evaluator.evaluator_name} - Precision`,
-          `${currentAvgScore} (${diffAverageScore === 0 ? '🟡' : diffAverageScore > 0 ? '+' : '-'}${diffAverageScore}pp)`,
+          `${currentAvgScore} ${diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${diffAverageScore}pp)`}`,
           `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
           `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
         ])
@@ -351,7 +351,7 @@ class OrqExperimentAction {
 
         evals.push([
           `${evaluator.evaluator_name} - Recall`,
-          `${currentAvgScore} (${diffAverageScore === 0 ? '🟡' : diffAverageScore > 0 ? '+' : '-'}${diffAverageScore}pp)`,
+          `${currentAvgScore} ${diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${diffAverageScore}pp)`}`,
           `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
           `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
         ])
@@ -378,7 +378,7 @@ class OrqExperimentAction {
 
           evals.push([
             evaluator.evaluator_name,
-            `${currentAvgScore} (${diffAverageScore === 0 ? '🟡' : diffAverageScore > 0 ? '+' : '-'}${diffAverageScore}pp)`,
+            `${currentAvgScore} ${diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${diffAverageScore}pp)`}`,
             `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
             `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
           ])

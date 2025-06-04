@@ -38774,7 +38774,7 @@ class OrqExperimentAction {
                                 ? 100
                                 : 0;
                         }
-                        else if (cell.value.type === 'llm_evaluator') {
+                        else if (cell.value.type === 'llm_eval') {
                             const llmEvalValue = cell.value.value;
                             if (typeof llmEvalValue?.value === 'boolean') {
                                 mapper[evaluator.evaluator_id] = cell.value.value
@@ -38879,7 +38879,7 @@ class OrqExperimentAction {
             }
             coreExports.info(`Evals values ${JSON.stringify(previousEvalValues)}`);
             if (evaluator.evaluator_key === 'bert_score') {
-                let evaluator_id = `${evaluator.evaluator_id}_f1`;
+                let evaluator_id = `${evaluator.evaluator_id}_bert_score_f1`;
                 let improvements = 0;
                 let regressions = 0;
                 let currentAvgScore = currentRunMetrics[evaluator_id];
@@ -38900,7 +38900,7 @@ class OrqExperimentAction {
                     `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
                     `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
                 ]);
-                evaluator_id = `${evaluator.evaluator_id}_precision`;
+                evaluator_id = `${evaluator.evaluator_id}_bert_score_precision`;
                 improvements = 0;
                 regressions = 0;
                 currentAvgScore = currentRunMetrics[evaluator_id];
@@ -38921,7 +38921,7 @@ class OrqExperimentAction {
                     `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
                     `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
                 ]);
-                evaluator_id = `${evaluator.evaluator_id}_recall`;
+                evaluator_id = `${evaluator.evaluator_id}_bert_score_recall`;
                 improvements = 0;
                 regressions = 0;
                 currentAvgScore = currentRunMetrics[evaluator_id];

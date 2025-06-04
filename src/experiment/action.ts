@@ -135,7 +135,7 @@ class OrqExperimentAction {
               mapper[evaluator.evaluator_id] = (cell.value.value as boolean)
                 ? 100
                 : 0
-            } else if (cell.value.type === 'llm_evaluator') {
+            } else if (cell.value.type === 'llm_eval') {
               const llmEvalValue = cell.value.value as {
                 value: number | boolean
               }
@@ -281,7 +281,7 @@ class OrqExperimentAction {
       core.info(`Evals values ${JSON.stringify(previousEvalValues)}`)
 
       if (evaluator.evaluator_key === 'bert_score') {
-        let evaluator_id = `${evaluator.evaluator_id}_f1`
+        let evaluator_id = `${evaluator.evaluator_id}_bert_score_f1`
         let improvements = 0
         let regressions = 0
 
@@ -306,7 +306,7 @@ class OrqExperimentAction {
           `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
         ])
 
-        evaluator_id = `${evaluator.evaluator_id}_precision`
+        evaluator_id = `${evaluator.evaluator_id}_bert_score_precision`
         improvements = 0
         regressions = 0
 
@@ -331,7 +331,7 @@ class OrqExperimentAction {
           `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
         ])
 
-        evaluator_id = `${evaluator.evaluator_id}_recall`
+        evaluator_id = `${evaluator.evaluator_id}_bert_score_recall`
         improvements = 0
         regressions = 0
 

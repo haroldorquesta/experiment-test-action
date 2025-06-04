@@ -117,11 +117,14 @@ class OrqExperimentAction {
     core.info(`previousRunMetrics ${JSON.stringify(previousRunMetrics)}`)
 
     for (const evaluator of uniqueEvals) {
+      if (['orq_cost', 'orq_latency'].includes(evaluator.evaluator_key))
+        continue
+
       core.info(`evaluator ${JSON.stringify(evaluator)}`)
       const evalColumnId = evalColumnIdMapper[evaluator.evaluator_id]
 
-      const evalValues = {} as Record<string, number>[]
-      const previousEvalValues = {} as Record<string, number>[]
+      const evalValues = [] as Record<string, number>[]
+      const previousEvalValues = [] as Record<string, number>[]
 
       for (const row of currentManifestRows.items) {
         for (const cell of row.cells) {

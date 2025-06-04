@@ -38756,10 +38756,12 @@ class OrqExperimentAction {
         coreExports.info(`currentRunMetrics ${JSON.stringify(currentRunMetrics)}`);
         coreExports.info(`previousRunMetrics ${JSON.stringify(previousRunMetrics)}`);
         for (const evaluator of uniqueEvals) {
+            if (['orq_cost', 'orq_latency'].includes(evaluator.evaluator_key))
+                continue;
             coreExports.info(`evaluator ${JSON.stringify(evaluator)}`);
             const evalColumnId = evalColumnIdMapper[evaluator.evaluator_id];
-            const evalValues = {};
-            const previousEvalValues = {};
+            const evalValues = [];
+            const previousEvalValues = [];
             for (const row of currentManifestRows.items) {
                 for (const cell of row.cells) {
                     const mapper = {};

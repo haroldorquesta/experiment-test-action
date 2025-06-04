@@ -39000,7 +39000,7 @@ class OrqExperimentAction {
             const { improvements, regressions } = this.calculateEvalScoreDifferences(evalValues, previousEvalValues, metricId);
             const [improvementsStr, regressionsStr] = this.formatImprovementsRegressions(improvements, regressions);
             results.push([
-                `${evaluator.evaluator_name} ${metric.label}`,
+                `Bert Score ${metric.label}`,
                 this.formatScoreDisplay(currentScore, previousScore),
                 improvementsStr,
                 regressionsStr
@@ -39019,9 +39019,11 @@ class OrqExperimentAction {
                 const previousScore = previousRunMetrics[metricId];
                 const { improvements, regressions } = this.calculateEvalScoreDifferences(evalValues, previousEvalValues, metricId);
                 const [improvementsStr, regressionsStr] = this.formatImprovementsRegressions(improvements, regressions);
-                const label = `${rougeType.toUpperCase()} ${metric.charAt(0).toUpperCase() + metric.slice(1)}`;
+                const rougeTypeLabels = rougeType.toUpperCase().split('_');
+                const rougeTypeLabel = `${rougeTypeLabels[0].charAt(0).toUpperCase() + rougeTypeLabels[0].slice(1)} ${rougeTypeLabels[1].charAt(0).toUpperCase()}`;
+                const label = `${rougeTypeLabel} ${metric.charAt(0).toUpperCase() + metric.slice(1)}`;
                 results.push([
-                    `${evaluator.evaluator_name} - ${label}`,
+                    label,
                     this.formatScoreDisplay(currentScore, previousScore),
                     improvementsStr,
                     regressionsStr

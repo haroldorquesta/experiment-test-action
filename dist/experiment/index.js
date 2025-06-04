@@ -38744,12 +38744,17 @@ class OrqExperimentAction {
         return mapper;
     }
     generateEvalImprovementsRegressions(experiment, currentRun, previousRun, currentManifestRows, previousManifestRows) {
+        coreExports.info('generate regressions');
         const uniqueEvals = experiment.unique_evaluators;
         const evals = [];
         const currentRunMetrics = this.normalizeMetrics(currentRun.metrics);
         const previousRunMetrics = this.normalizeMetrics(previousRun.metrics);
         const evalColumnIdMapper = this.evaluatorColumnIdMapper(Object.keys(currentRunMetrics), currentRun);
+        coreExports.info(`unique evals ${JSON.stringify(uniqueEvals)}`);
+        coreExports.info(`currentRunMetrics ${JSON.stringify(currentRunMetrics)}`);
+        coreExports.info(`previousRunMetrics ${JSON.stringify(previousRunMetrics)}`);
         for (const evaluator of uniqueEvals) {
+            coreExports.info(`evaluator ${JSON.stringify(evaluator)}`);
             const evalColumnId = evalColumnIdMapper[evaluator.evaluator_id];
             const evalValues = {};
             const previousEvalValues = {};
@@ -38810,6 +38815,7 @@ class OrqExperimentAction {
                     evalValues.push(mapper);
                 }
             }
+            coreExports.info(`Evals values ${JSON.stringify(evalValues)}`);
             for (const row of previousManifestRows.items) {
                 for (const cell of row.cells) {
                     const mapper = {};
@@ -38867,6 +38873,7 @@ class OrqExperimentAction {
                     previousEvalValues.push(mapper);
                 }
             }
+            coreExports.info(`Evals values ${JSON.stringify(previousEvalValues)}`);
             if (evaluator.evaluator_key === 'bert_score') {
                 let evaluator_id = `${evaluator.evaluator_id}_f1`;
                 let improvements = 0;
@@ -38933,27 +38940,33 @@ class OrqExperimentAction {
                 ]);
             }
             else {
-                let improvements = 0;
-                let regressions = 0;
-                const currentAvgScore = currentRunMetrics[evaluator.evaluator_id];
-                const previousAvgScore = previousRunMetrics[evaluator.evaluator_id];
-                const diffAverageScore = currentAvgScore - previousAvgScore;
-                for (const [index, evalluator] of evalValues.entries()) {
-                    const score = evalluator[evaluator.evaluator_id] -
-                        previousEvalValues[index][evaluator.evaluator_id];
-                    if (score > 0) {
-                        improvements++;
+                coreExports.info('else');
+                try {
+                    let improvements = 0;
+                    let regressions = 0;
+                    const currentAvgScore = currentRunMetrics[evaluator.evaluator_id];
+                    const previousAvgScore = previousRunMetrics[evaluator.evaluator_id];
+                    const diffAverageScore = currentAvgScore - previousAvgScore;
+                    for (const [index, evalluator] of evalValues.entries()) {
+                        const score = evalluator[evaluator.evaluator_id] -
+                            previousEvalValues[index][evaluator.evaluator_id];
+                        if (score > 0) {
+                            improvements++;
+                        }
+                        else if (score < 0) {
+                            regressions++;
+                        }
                     }
-                    else if (score < 0) {
-                        regressions++;
-                    }
+                    evals.push([
+                        evaluator.evaluator_name,
+                        `${currentAvgScore} (${diffAverageScore > 0 ? '+' : '-'}${diffAverageScore}pp)`,
+                        improvements.toString(),
+                        regressions.toString()
+                    ]);
                 }
-                evals.push([
-                    evaluator.evaluator_name,
-                    `${currentAvgScore} (${diffAverageScore > 0 ? '+' : '-'}${diffAverageScore}pp)`,
-                    improvements.toString(),
-                    regressions.toString()
-                ]);
+                catch (error) {
+                    coreExports.error(error);
+                }
             }
         }
         return evals;

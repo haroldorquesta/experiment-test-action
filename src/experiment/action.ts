@@ -95,6 +95,7 @@ class OrqExperimentAction {
     currentManifestRows: PaginatedExperimentManifestRows,
     previousManifestRows: PaginatedExperimentManifestRows
   ) {
+    core.info('generate regressions')
     const uniqueEvals = experiment.unique_evaluators
 
     const evals = []
@@ -107,7 +108,12 @@ class OrqExperimentAction {
       currentRun
     )
 
+    core.info(`unique evals ${JSON.stringify(uniqueEvals)}`)
+    core.info(`currentRunMetrics ${JSON.stringify(currentRunMetrics)}`)
+    core.info(`previousRunMetrics ${JSON.stringify(previousRunMetrics)}`)
+
     for (const evaluator of uniqueEvals) {
+      core.info(`evaluator ${JSON.stringify(evaluator)}`)
       const evalColumnId = evalColumnIdMapper[evaluator.evaluator_id]
 
       const evalValues = {} as Record<string, number>[]
@@ -189,6 +195,8 @@ class OrqExperimentAction {
         }
       }
 
+      core.info(`Evals values ${JSON.stringify(evalValues)}`)
+
       for (const row of previousManifestRows.items) {
         for (const cell of row.cells) {
           const mapper = {} as Record<string, number>
@@ -264,6 +272,8 @@ class OrqExperimentAction {
           previousEvalValues.push(mapper)
         }
       }
+
+      core.info(`Evals values ${JSON.stringify(previousEvalValues)}`)
 
       if (evaluator.evaluator_key === 'bert_score') {
         let evaluator_id = `${evaluator.evaluator_id}_f1`
@@ -341,30 +351,35 @@ class OrqExperimentAction {
           regressions.toString()
         ])
       } else {
-        let improvements = 0
-        let regressions = 0
+        core.info('else')
+        try {
+          let improvements = 0
+          let regressions = 0
 
-        const currentAvgScore = currentRunMetrics[evaluator.evaluator_id]
-        const previousAvgScore = previousRunMetrics[evaluator.evaluator_id]
-        const diffAverageScore = currentAvgScore - previousAvgScore
+          const currentAvgScore = currentRunMetrics[evaluator.evaluator_id]
+          const previousAvgScore = previousRunMetrics[evaluator.evaluator_id]
+          const diffAverageScore = currentAvgScore - previousAvgScore
 
-        for (const [index, evalluator] of evalValues.entries()) {
-          const score =
-            evalluator[evaluator.evaluator_id] -
-            previousEvalValues[index][evaluator.evaluator_id]
-          if (score > 0) {
-            improvements++
-          } else if (score < 0) {
-            regressions++
+          for (const [index, evalluator] of evalValues.entries()) {
+            const score =
+              evalluator[evaluator.evaluator_id] -
+              previousEvalValues[index][evaluator.evaluator_id]
+            if (score > 0) {
+              improvements++
+            } else if (score < 0) {
+              regressions++
+            }
           }
-        }
 
-        evals.push([
-          evaluator.evaluator_name,
-          `${currentAvgScore} (${diffAverageScore > 0 ? '+' : '-'}${diffAverageScore}pp)`,
-          improvements.toString(),
-          regressions.toString()
-        ])
+          evals.push([
+            evaluator.evaluator_name,
+            `${currentAvgScore} (${diffAverageScore > 0 ? '+' : '-'}${diffAverageScore}pp)`,
+            improvements.toString(),
+            regressions.toString()
+          ])
+        } catch (error) {
+          core.error(error as string)
+        }
       }
     }
 

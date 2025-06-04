@@ -38736,7 +38736,9 @@ class OrqExperimentAction {
                 ? evalKey.split('_')[0]
                 : evalKey;
             for (const column of experimentManifest.columns) {
-                if (normalizeEvalKey === column.config['evaluator_id']) {
+                if ('config' in column &&
+                    'evaluator_id' in column.config &&
+                    normalizeEvalKey === column.config['evaluator_id']) {
                     mapper[evalKey] = column.id;
                 }
             }

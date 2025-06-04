@@ -110,14 +110,15 @@ export class OrqApiClient {
     experimentId: string,
     experimentRunId: string
   ): Promise<[ExperimentManifest | null, ExperimentManifest | null]> {
-    const experimentManifestPaged = await this.makeRequest<{
-      items: ExperimentManifest[]
-    }>(`/v2/spreadsheets/${experimentId}/manifests`, {
-      method: 'GET'
-    })
-
-    const experimentManifests = experimentManifestPaged.items
-    core.info(`Paginated manifests ${JSON.stringify(experimentManifests)}`)
+    const experimentManifests = await this.makeRequest<ExperimentManifest[]>(
+      `/v2/spreadsheets/${experimentId}/manifests`,
+      {
+        method: 'GET'
+      }
+    )
+    core.info(
+      `experiment averange Run metrics ${JSON.stringify(experimentManifests)}`
+    )
 
     const currentRunIndex = experimentManifests.findIndex(
       (manifest) => manifest._id === experimentRunId

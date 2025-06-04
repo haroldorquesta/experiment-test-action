@@ -39000,11 +39000,33 @@ class OrqExperimentAction {
             const { improvements, regressions } = this.calculateEvalScoreDifferences(evalValues, previousEvalValues, metricId);
             const [improvementsStr, regressionsStr] = this.formatImprovementsRegressions(improvements, regressions);
             results.push([
-                `${evaluator.evaluator_name} - ${metric.label}`,
+                `${evaluator.evaluator_name} ${metric.label}`,
                 this.formatScoreDisplay(currentScore, previousScore),
                 improvementsStr,
                 regressionsStr
             ]);
+        }
+        return results;
+    }
+    processRougeNEval(evaluator, evalValues, previousEvalValues, currentRunMetrics, previousRunMetrics) {
+        const rougeTypes = ['rouge_1', 'rouge_2', 'rouge_l'];
+        const metrics = ['f1', 'precision', 'recall'];
+        const results = [];
+        for (const rougeType of rougeTypes) {
+            for (const metric of metrics) {
+                const metricId = `${evaluator.evaluator_id}_${rougeType}_${metric}`;
+                const currentScore = currentRunMetrics[metricId];
+                const previousScore = previousRunMetrics[metricId];
+                const { improvements, regressions } = this.calculateEvalScoreDifferences(evalValues, previousEvalValues, metricId);
+                const [improvementsStr, regressionsStr] = this.formatImprovementsRegressions(improvements, regressions);
+                const label = `${rougeType.toUpperCase()} ${metric.charAt(0).toUpperCase() + metric.slice(1)}`;
+                results.push([
+                    `${evaluator.evaluator_name} - ${label}`,
+                    this.formatScoreDisplay(currentScore, previousScore),
+                    improvementsStr,
+                    regressionsStr
+                ]);
+            }
         }
         return results;
     }
@@ -39059,6 +39081,10 @@ class OrqExperimentAction {
             if (evaluator.evaluator_key === 'bert_score') {
                 const bertScoreResults = this.processBertScoreEval(evaluator, evalValues, previousEvalValues, currentRunMetrics, previousRunMetrics);
                 evals.push(...bertScoreResults);
+            }
+            else if (evaluator.evaluator_key === 'rouge_n') {
+                const rougeNResults = this.processRougeNEval(evaluator, evalValues, previousEvalValues, currentRunMetrics, previousRunMetrics);
+                evals.push(...rougeNResults);
             }
             else {
                 const standardEvalResult = this.processStandardEval(evaluator, evalValues, previousEvalValues, currentRunMetrics, previousRunMetrics);

@@ -52,7 +52,7 @@ export type DeploymentExperimentRunResponse = {
   experiment_run_id: string
 }
 
-type ExperimentManifetColumn = {
+type ExperimentManifestColumn = {
   display_name: string
   key: string
   column_type: string
@@ -66,7 +66,7 @@ export type ExperimentManifest = {
   _id: string
   sheet_id: string
   key: string
-  columns: ExperimentManifetColumn[]
+  columns: ExperimentManifestColumn[]
   status: string
   created_by_id: string
   updated_by_id: string
@@ -85,7 +85,7 @@ export type ExperimentManifest = {
   metrics: Record<string, number>
 }
 
-type ExperimentManifestRow = {
+export type ExperimentManifestRow = {
   type: string
   _id: string
   row_id: string
@@ -123,7 +123,7 @@ export type PaginatedExperimentManifestRows = {
   items: ExperimentManifestRows[]
 }
 
-type ExperimentEval = {
+export type ExperimentEval = {
   evaluator_id: string
   evaluator_type: string
   evaluator_key: string

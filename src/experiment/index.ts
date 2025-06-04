@@ -4,7 +4,6 @@ import OrqExperimentAction from './action.js'
 async function run(): Promise<void> {
   try {
     const action = new OrqExperimentAction()
-    await action.validateInput()
     await action.run()
   } catch (error) {
     // Fail the workflow run if an error occurs

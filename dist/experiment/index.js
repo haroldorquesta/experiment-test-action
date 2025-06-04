@@ -38666,6 +38666,15 @@ var YAML = /*#__PURE__*/Object.freeze({
 });
 
 function generateMarkdownTable(headers, rows) {
+    if (!Array.isArray(headers) || headers.length === 0) {
+        throw new Error('Headers must be a non-empty array');
+    }
+    if (!Array.isArray(rows)) {
+        throw new Error('Rows must be an array');
+    }
+    if (rows.some((row) => !Array.isArray(row) || row.length !== headers.length)) {
+        throw new Error('Each row must be an array with the same length as headers');
+    }
     let table = `| ${headers.join(' | ')} |\n`;
     table += `|${headers.map(() => '---').join('|')}|\n`;
     for (const row of rows) {
@@ -38674,29 +38683,171 @@ function generateMarkdownTable(headers, rows) {
     return table;
 }
 function sleep(seconds = 5) {
+    if (typeof seconds !== 'number' || seconds < 0) {
+        throw new Error('Seconds must be a non-negative number');
+    }
     return new Promise((resolve) => setTimeout(resolve, seconds * 1000));
 }
 function decodeBase64String(message) {
-    return Buffer.from(message, 'base64').toString('utf8');
+    if (typeof message !== 'string') {
+        throw new Error('Message must be a string');
+    }
+    if (message.length === 0) {
+        return '';
+    }
+    try {
+        return Buffer.from(message, 'base64').toString('utf8');
+    }
+    catch (error) {
+        throw new Error(`Invalid base64 string: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
 }
 
+/**
+ * Represents the status of an experiment sheet run
+ */
 var SheetRunStatus;
 (function (SheetRunStatus) {
+    /** Initial state before the run is queued */
     SheetRunStatus["DRAFT"] = "draft";
+    /** Run is queued for execution */
     SheetRunStatus["QUEUED"] = "queued";
+    /** Run is currently being executed */
     SheetRunStatus["RUNNING"] = "running";
+    /** Run has completed successfully */
     SheetRunStatus["COMPLETED"] = "completed";
+    /** Run was cancelled by user */
     SheetRunStatus["CANCELLED"] = "cancelled";
+    /** Run failed during execution */
     SheetRunStatus["FAILED"] = "failed";
 })(SheetRunStatus || (SheetRunStatus = {}));
 
+class OrqExperimentError extends Error {
+    context;
+    constructor(message, context) {
+        super(message);
+        this.context = context;
+        this.name = 'OrqExperimentError';
+    }
+}
+
+class OrqApiClient {
+    apiKey;
+    baseUrl;
+    constructor(apiKey, baseUrl) {
+        this.apiKey = apiKey;
+        this.baseUrl = baseUrl;
+    }
+    get defaultHeaders() {
+        return {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`
+        };
+    }
+    async makeRequest(endpoint, options) {
+        const response = await fetch(`${this.baseUrl}${endpoint}`, {
+            method: options.method,
+            headers: {
+                ...this.defaultHeaders,
+                ...options.headers
+            },
+            body: options.body ? JSON.stringify(options.body) : undefined
+        });
+        if (!response.ok) {
+            throw new OrqExperimentError(`API request failed: ${response.statusText}`, {
+                phase: 'api_call',
+                details: {
+                    status: response.status,
+                    statusText: response.statusText,
+                    endpoint
+                }
+            });
+        }
+        return (await response.json());
+    }
+    async runExperiment(payload) {
+        coreExports.info(`Run experiment ${JSON.stringify(payload)}`);
+        return this.makeRequest(`/v2/deployments/${payload.deployment_key}/experiment`, {
+            method: 'POST',
+            body: {
+                type: 'deployment_experiment',
+                experiment_key: payload.experiment_key,
+                dataset_id: payload.dataset_id,
+                ...(payload.context ? { context: payload.context } : {}),
+                ...(payload.evaluators ? { evaluators: payload.evaluators } : {})
+            }
+        });
+    }
+    async getExperiment(experimentId) {
+        const experiment = await this.makeRequest(`/v2/spreadsheets/${experimentId}`, { method: 'GET' });
+        coreExports.info(`Get experiment result ${JSON.stringify(experiment)}`);
+        return experiment;
+    }
+    async getExperimentManifest(experimentId, experimentRunId) {
+        return this.makeRequest(`/v2/spreadsheets/${experimentId}/manifests/${experimentRunId}`, { method: 'GET' });
+    }
+    async getExperimentManifestRows(experimentId, experimentRunId) {
+        return this.makeRequest(`/v2/spreadsheets/${experimentId}/rows?manifest_id=${experimentRunId}`, { method: 'GET' });
+    }
+    async getExperimentRunAverageMetrics(experimentId, experimentRunId) {
+        const experimentManifestPaged = await this.makeRequest(`/v2/spreadsheets/${experimentId}/manifests?status=completed&limit=10`, {
+            method: 'GET'
+        });
+        const experimentManifests = experimentManifestPaged.items;
+        coreExports.info(`Paginated manifests ${JSON.stringify(experimentManifests)}`);
+        const currentRun = experimentManifests.find((manifest) => manifest._id === experimentRunId);
+        const previousRun = experimentManifests.find((manifest) => manifest._id !== experimentRunId && manifest.status === 'completed');
+        return [currentRun || null, previousRun || null];
+    }
+}
+
+const CONSTANTS = {
+    PERFECT_SCORE: 100,
+    FAILED_SCORE: 0,
+    BERT_SCORE_METRICS: ['f1', 'precision', 'recall'],
+    POLL_INTERVAL_SECONDS: 3,
+    API_BASE_URL: 'https://my.staging.orq.ai',
+    ICONS: {
+        NEUTRAL: '🟡',
+        SUCCESS: '🟢',
+        ERROR: '🔴'
+    }
+};
+
+// Type guards
+function isLLMEvalValue(value) {
+    return (typeof value === 'object' &&
+        value !== null &&
+        'value' in value &&
+        (typeof value.value === 'number' ||
+            typeof value.value === 'boolean'));
+}
+function isBertScoreValue(value) {
+    return (typeof value === 'object' &&
+        value !== null &&
+        'f1' in value &&
+        'precision' in value &&
+        'recall' in value &&
+        typeof value
+            .f1 === 'number' &&
+        typeof value
+            .precision === 'number' &&
+        typeof value
+            .recall === 'number');
+}
+function isRougeScoreValue(value) {
+    return (typeof value === 'object' &&
+        value !== null &&
+        'rouge_1' in value &&
+        'rouge_2' in value &&
+        'rouge_l' in value);
+}
 class OrqExperimentAction {
     octokit;
     context;
     pullRequest;
-    apiKey = '';
+    apiClient = null;
     path = '';
-    orqApiBaseUrl = 'https://my.staging.orq.ai';
     constructor() {
         this.octokit = githubExports.getOctokit(coreExports.getInput('github_token'));
         this.context = githubExports.context;
@@ -38707,9 +38858,67 @@ class OrqExperimentAction {
             issue_number: issue.number
         };
     }
+    extractEvalValue(cell, evaluatorId) {
+        const mapper = {};
+        const { type, value } = cell.value;
+        switch (type) {
+            case 'number':
+                if (typeof value === 'number') {
+                    mapper[evaluatorId] = value;
+                }
+                break;
+            case 'boolean':
+                if (typeof value === 'boolean') {
+                    mapper[evaluatorId] = value
+                        ? CONSTANTS.PERFECT_SCORE
+                        : CONSTANTS.FAILED_SCORE;
+                }
+                break;
+            case 'llm_eval':
+                if (isLLMEvalValue(value)) {
+                    if (typeof value.value === 'boolean') {
+                        mapper[evaluatorId] = value.value
+                            ? CONSTANTS.PERFECT_SCORE
+                            : CONSTANTS.FAILED_SCORE;
+                    }
+                    else if (typeof value.value === 'number') {
+                        mapper[evaluatorId] = value.value;
+                    }
+                }
+                break;
+            case 'bert_score':
+                if (isBertScoreValue(value)) {
+                    mapper[`${evaluatorId}_bert_score_f1`] = value.f1;
+                    mapper[`${evaluatorId}_bert_score_precision`] = value.precision;
+                    mapper[`${evaluatorId}_bert_score_recall`] = value.recall;
+                }
+                break;
+            case 'rouge_n':
+                if (isRougeScoreValue(value)) {
+                    mapper[`${evaluatorId}_rouge_1_f1`] = value.rouge_1.f1;
+                    mapper[`${evaluatorId}_rouge_1_precision`] = value.rouge_1.precision;
+                    mapper[`${evaluatorId}_rouge_1_recall`] = value.rouge_1.recall;
+                    mapper[`${evaluatorId}_rouge_2_f1`] = value.rouge_2.f1;
+                    mapper[`${evaluatorId}_rouge_2_precision`] = value.rouge_2.precision;
+                    mapper[`${evaluatorId}_rouge_2_recall`] = value.rouge_2.recall;
+                    mapper[`${evaluatorId}_rouge_l_f1`] = value.rouge_l.f1;
+                    mapper[`${evaluatorId}_rouge_l_precision`] = value.rouge_l.precision;
+                    mapper[`${evaluatorId}_rouge_l_recall`] = value.rouge_l.recall;
+                }
+                break;
+        }
+        return mapper;
+    }
+    /**
+     * Main entry point for the GitHub Action
+     * Processes config changes and runs experiments
+     */
     async run() {
+        this.validateInput();
         if (!this.pullRequest) {
-            throw new Error('Pull request not found!');
+            throw new OrqExperimentError('Pull request not found!', {
+                phase: 'initialization'
+            });
         }
         const configChanges = await this.getConfigChanges();
         const experimentRuns = [];
@@ -38746,6 +38955,88 @@ class OrqExperimentAction {
         }
         return mapper;
     }
+    calculateEvalScoreDifferences(evalValues, previousEvalValues, metricId) {
+        let improvements = 0;
+        let regressions = 0;
+        for (const [index, evaluator] of evalValues.entries()) {
+            const score = evaluator[metricId] - previousEvalValues[index][metricId];
+            if (score > 0) {
+                improvements++;
+            }
+            else if (score < 0) {
+                regressions++;
+            }
+        }
+        return { improvements, regressions };
+    }
+    formatScoreDisplay(currentScore, previousScore) {
+        const diff = currentScore - previousScore;
+        if (diff === 0)
+            return `${currentScore}%`;
+        return `${currentScore}% ${diff > 0 ? `(+${diff}pp)` : `(-${Math.abs(diff)}pp)`}`;
+    }
+    formatImprovementsRegressions(improvements, regressions) {
+        return [
+            improvements === 0
+                ? CONSTANTS.ICONS.NEUTRAL
+                : `${CONSTANTS.ICONS.SUCCESS} ${improvements}`,
+            regressions === 0
+                ? CONSTANTS.ICONS.NEUTRAL
+                : `${CONSTANTS.ICONS.ERROR} ${regressions}`
+        ];
+    }
+    processBertScoreEval(evaluator, evalValues, previousEvalValues, currentRunMetrics, previousRunMetrics) {
+        const metrics = CONSTANTS.BERT_SCORE_METRICS.map((suffix) => ({
+            suffix,
+            label: suffix.charAt(0).toUpperCase() + suffix.slice(1)
+        }));
+        const results = [];
+        for (const metric of metrics) {
+            const metricId = `${evaluator.evaluator_id}_bert_score_${metric.suffix}`;
+            const currentScore = currentRunMetrics[metricId];
+            const previousScore = previousRunMetrics[metricId];
+            const { improvements, regressions } = this.calculateEvalScoreDifferences(evalValues, previousEvalValues, metricId);
+            const [improvementsStr, regressionsStr] = this.formatImprovementsRegressions(improvements, regressions);
+            results.push([
+                `${evaluator.evaluator_name} - ${metric.label}`,
+                this.formatScoreDisplay(currentScore, previousScore),
+                improvementsStr,
+                regressionsStr
+            ]);
+        }
+        return results;
+    }
+    processStandardEval(evaluator, evalValues, previousEvalValues, currentRunMetrics, previousRunMetrics) {
+        try {
+            const currentScore = currentRunMetrics[evaluator.evaluator_id];
+            const previousScore = previousRunMetrics[evaluator.evaluator_id];
+            const { improvements, regressions } = this.calculateEvalScoreDifferences(evalValues, previousEvalValues, evaluator.evaluator_id);
+            const [improvementsStr, regressionsStr] = this.formatImprovementsRegressions(improvements, regressions);
+            return [
+                evaluator.evaluator_name,
+                this.formatScoreDisplay(currentScore, previousScore),
+                improvementsStr,
+                regressionsStr
+            ];
+        }
+        catch (error) {
+            coreExports.error(error);
+            return null;
+        }
+    }
+    collectEvalValues(manifestRows, evalColumnId, evaluatorId) {
+        const evalValues = [];
+        for (const row of manifestRows.items) {
+            let mapper = {};
+            for (const cell of row.cells) {
+                if (cell.column_id === evalColumnId) {
+                    mapper = { ...mapper, ...this.extractEvalValue(cell, evaluatorId) };
+                }
+            }
+            evalValues.push(mapper);
+        }
+        return evalValues;
+    }
     generateEvalImprovementsRegressions(experiment, currentRun, previousRun, currentManifestRows, previousManifestRows) {
         coreExports.info('generate regressions');
         const uniqueEvals = experiment.unique_evaluators;
@@ -38759,230 +39050,22 @@ class OrqExperimentAction {
         for (const evaluator of uniqueEvals) {
             coreExports.info(`evaluator ${JSON.stringify(evaluator)}`);
             const evalColumnId = evalColumnIdMapper[evaluator.evaluator_id];
-            const evalValues = [];
-            const previousEvalValues = [];
-            for (const row of currentManifestRows.items) {
-                const mapper = {};
-                for (const cell of row.cells) {
-                    if (cell.column_id === evalColumnId) {
-                        if (cell.value.type === 'number') {
-                            mapper[evaluator.evaluator_id] = cell.value.value;
-                        }
-                        else if (cell.value.type === 'boolean') {
-                            mapper[evaluator.evaluator_id] = cell.value.value
-                                ? 100
-                                : 0;
-                        }
-                        else if (cell.value.type === 'llm_eval') {
-                            const llmEvalValue = cell.value.value;
-                            if (typeof llmEvalValue?.value === 'boolean') {
-                                mapper[evaluator.evaluator_id] = cell.value.value
-                                    ? 100
-                                    : 0;
-                            }
-                            else if (typeof llmEvalValue?.value === 'number') {
-                                mapper[evaluator.evaluator_id] = cell.value.value;
-                            }
-                        }
-                        else if (cell.value.type === 'bert_score') {
-                            const bertScoreValue = cell.value.value;
-                            mapper[`${evaluator.evaluator_id}_bert_score_f1`] =
-                                bertScoreValue.f1;
-                            mapper[`${evaluator.evaluator_id}_bert_score_precision`] =
-                                bertScoreValue.precision;
-                            mapper[`${evaluator.evaluator_id}_bert_score_recall`] =
-                                bertScoreValue.recall;
-                        }
-                        else if (cell.value.type === 'rouge_n') {
-                            const rougeScoreValue = cell.value.value;
-                            mapper[`${evaluator.evaluator_id}_rouge_1_f1`] =
-                                rougeScoreValue.rouge_1.f1;
-                            mapper[`${evaluator.evaluator_id}_rouge_1_precision`] =
-                                rougeScoreValue.rouge_1.precision;
-                            mapper[`${evaluator.evaluator_id}_rouge_1_recall`] =
-                                rougeScoreValue.rouge_1.recall;
-                            mapper[`${evaluator.evaluator_id}_rouge_2_f1`] =
-                                rougeScoreValue.rouge_2.f1;
-                            mapper[`${evaluator.evaluator_id}_rouge_2_precision`] =
-                                rougeScoreValue.rouge_2.precision;
-                            mapper[`${evaluator.evaluator_id}_rouge_2_recall`] =
-                                rougeScoreValue.rouge_2.recall;
-                            mapper[`${evaluator.evaluator_id}_rouge_l_f1`] =
-                                rougeScoreValue.rouge_l.f1;
-                            mapper[`${evaluator.evaluator_id}_rouge_l_precision`] =
-                                rougeScoreValue.rouge_l.precision;
-                            mapper[`${evaluator.evaluator_id}_rouge_l_recall`] =
-                                rougeScoreValue.rouge_l.recall;
-                        }
-                    }
-                }
-                evalValues.push(mapper);
-            }
-            coreExports.info(`Evals values ${JSON.stringify(evalValues)}`);
-            for (const row of previousManifestRows.items) {
-                const mapper = {};
-                for (const cell of row.cells) {
-                    if (cell.column_id === evalColumnId) {
-                        if (cell.value.type === 'number') {
-                            mapper[evaluator.evaluator_id] = cell.value.value;
-                        }
-                        else if (cell.value.type === 'boolean') {
-                            mapper[evaluator.evaluator_id] = cell.value.value
-                                ? 100
-                                : 0;
-                        }
-                        else if (cell.value.type === 'llm_evaluator') {
-                            const llmEvalValue = cell.value.value;
-                            if (typeof llmEvalValue?.value === 'boolean') {
-                                mapper[evaluator.evaluator_id] = cell.value.value
-                                    ? 100
-                                    : 0;
-                            }
-                            else if (typeof llmEvalValue?.value === 'number') {
-                                mapper[evaluator.evaluator_id] = cell.value.value;
-                            }
-                        }
-                        else if (cell.value.type === 'bert_score') {
-                            const bertScoreValue = cell.value.value;
-                            mapper[`${evaluator.evaluator_id}_bert_score_f1`] =
-                                bertScoreValue.f1;
-                            mapper[`${evaluator.evaluator_id}_bert_score_precision`] =
-                                bertScoreValue.precision;
-                            mapper[`${evaluator.evaluator_id}_bert_score_recall`] =
-                                bertScoreValue.recall;
-                        }
-                        else if (cell.value.type === 'rouge_n') {
-                            const rougeScoreValue = cell.value.value;
-                            mapper[`${evaluator.evaluator_id}_rouge_1_f1`] =
-                                rougeScoreValue.rouge_1.f1;
-                            mapper[`${evaluator.evaluator_id}_rouge_1_precision`] =
-                                rougeScoreValue.rouge_1.precision;
-                            mapper[`${evaluator.evaluator_id}_rouge_1_recall`] =
-                                rougeScoreValue.rouge_1.recall;
-                            mapper[`${evaluator.evaluator_id}_rouge_2_f1`] =
-                                rougeScoreValue.rouge_2.f1;
-                            mapper[`${evaluator.evaluator_id}_rouge_2_precision`] =
-                                rougeScoreValue.rouge_2.precision;
-                            mapper[`${evaluator.evaluator_id}_rouge_2_recall`] =
-                                rougeScoreValue.rouge_2.recall;
-                            mapper[`${evaluator.evaluator_id}_rouge_l_f1`] =
-                                rougeScoreValue.rouge_l.f1;
-                            mapper[`${evaluator.evaluator_id}_rouge_l_precision`] =
-                                rougeScoreValue.rouge_l.precision;
-                            mapper[`${evaluator.evaluator_id}_rouge_l_recall`] =
-                                rougeScoreValue.rouge_l.recall;
-                        }
-                    }
-                }
-                previousEvalValues.push(mapper);
-            }
-            coreExports.info(`Evals values ${JSON.stringify(previousEvalValues)}`);
+            const evalValues = this.collectEvalValues(currentManifestRows, evalColumnId, evaluator.evaluator_id);
+            const previousEvalValues = this.collectEvalValues(previousManifestRows, evalColumnId, evaluator.evaluator_id);
+            coreExports.info(`current Evals values ${JSON.stringify(evalValues)}`);
+            coreExports.info(`previous Evals values ${JSON.stringify(previousEvalValues)}`);
             if (evaluator.evaluator_key === 'bert_score') {
-                let evaluator_id = `${evaluator.evaluator_id}_bert_score_f1`;
-                let improvements = 0;
-                let regressions = 0;
-                let currentAvgScore = currentRunMetrics[evaluator_id];
-                let previousAvgScore = previousRunMetrics[evaluator_id];
-                let diffAverageScore = currentAvgScore - previousAvgScore;
-                for (const [index, evalluator] of evalValues.entries()) {
-                    const score = evalluator[evaluator_id] - previousEvalValues[index][evaluator_id];
-                    if (score > 0) {
-                        improvements++;
-                    }
-                    else if (score < 0) {
-                        regressions++;
-                    }
-                }
-                evals.push([
-                    `${evaluator.evaluator_name} - F1`,
-                    `${currentAvgScore}% ${diffAverageScore === 0 ? '' : diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${diffAverageScore}pp)`}`,
-                    `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
-                    `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
-                ]);
-                evaluator_id = `${evaluator.evaluator_id}_bert_score_precision`;
-                improvements = 0;
-                regressions = 0;
-                currentAvgScore = currentRunMetrics[evaluator_id];
-                previousAvgScore = previousRunMetrics[evaluator_id];
-                diffAverageScore = currentAvgScore - previousAvgScore;
-                for (const [index, evalluator] of evalValues.entries()) {
-                    const score = evalluator[evaluator_id] - previousEvalValues[index][evaluator_id];
-                    if (score > 0) {
-                        improvements++;
-                    }
-                    else if (score < 0) {
-                        regressions++;
-                    }
-                }
-                evals.push([
-                    `${evaluator.evaluator_name} - Precision`,
-                    `${currentAvgScore}% ${diffAverageScore === 0 ? '' : diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${diffAverageScore}pp)`}`,
-                    `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
-                    `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
-                ]);
-                evaluator_id = `${evaluator.evaluator_id}_bert_score_recall`;
-                improvements = 0;
-                regressions = 0;
-                currentAvgScore = currentRunMetrics[evaluator_id];
-                previousAvgScore = previousRunMetrics[evaluator_id];
-                diffAverageScore = currentAvgScore - previousAvgScore;
-                for (const [index, evalluator] of evalValues.entries()) {
-                    const score = evalluator[evaluator_id] - previousEvalValues[index][evaluator_id];
-                    if (score > 0) {
-                        improvements++;
-                    }
-                    else if (score < 0) {
-                        regressions++;
-                    }
-                }
-                evals.push([
-                    `${evaluator.evaluator_name} - Recall`,
-                    `${currentAvgScore} ${diffAverageScore === 0 ? '' : diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${Math.abs(diffAverageScore)}pp)`}`,
-                    `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
-                    `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
-                ]);
+                const bertScoreResults = this.processBertScoreEval(evaluator, evalValues, previousEvalValues, currentRunMetrics, previousRunMetrics);
+                evals.push(...bertScoreResults);
             }
             else {
-                coreExports.info('else');
-                try {
-                    let improvements = 0;
-                    let regressions = 0;
-                    const currentAvgScore = currentRunMetrics[evaluator.evaluator_id];
-                    const previousAvgScore = previousRunMetrics[evaluator.evaluator_id];
-                    const diffAverageScore = currentAvgScore - previousAvgScore;
-                    for (const [index, evalluator] of evalValues.entries()) {
-                        const score = evalluator[evaluator.evaluator_id] -
-                            previousEvalValues[index][evaluator.evaluator_id];
-                        if (score > 0) {
-                            improvements++;
-                        }
-                        else if (score < 0) {
-                            regressions++;
-                        }
-                    }
-                    evals.push([
-                        evaluator.evaluator_name,
-                        `${currentAvgScore}% ${diffAverageScore === 0 ? '' : diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${diffAverageScore}pp)`}`,
-                        `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
-                        `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
-                    ]);
-                }
-                catch (error) {
-                    coreExports.error(error);
+                const standardEvalResult = this.processStandardEval(evaluator, evalValues, previousEvalValues, currentRunMetrics, previousRunMetrics);
+                if (standardEvalResult) {
+                    evals.push(standardEvalResult);
                 }
             }
         }
         return evals;
-    }
-    async getExperimentManifestRows(experimentId, experimentRunId) {
-        const experimentManifestRowsResponse = await fetch(`${this.orqApiBaseUrl}/v2/spreadsheets/${experimentId}/rows?manifest_id=${experimentRunId}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.apiKey}`
-            }
-        });
-        return (await experimentManifestRowsResponse.json());
     }
     async orchestrateExperimentRun(runPayload) {
         const commentKey = `<!-- orq_experiment_action_${runPayload.experiment_key} -->`;
@@ -38990,20 +39073,32 @@ class OrqExperimentAction {
             let message = `## Orq Experiment report
 ### Running experiment ${runPayload.experiment_key}...`;
             await this.upsertComment(commentKey, message);
-            const experimentRun = await this.runExperiment(runPayload);
-            const experiment = await this.getExperiment(experimentRun.experiment_id);
+            if (!this.apiClient) {
+                throw new OrqExperimentError('API client not initialized', {
+                    phase: 'api_call'
+                });
+            }
+            const experimentRun = await this.apiClient.runExperiment(runPayload);
+            const experiment = await this.apiClient.getExperiment(experimentRun.experiment_id);
             await this.waitForExperimentManifestRunCompletion(experimentRun);
-            const [currentRun, previousRun] = await this.getExperimentRunAverageMetrics(experimentRun.experiment_id, experimentRun.experiment_run_id);
+            const [currentRun, previousRun] = await this.apiClient.getExperimentRunAverageMetrics(experimentRun.experiment_id, experimentRun.experiment_run_id);
             const headers = ['Score', 'Average', 'Improvements', 'Regressions'];
             let rows = [];
             if (currentRun !== null && previousRun !== null) {
-                const currentExperimentManifestRows = await this.getExperimentManifestRows(experimentRun.experiment_id, experimentRun.experiment_run_id);
-                const previousExperimentManifestRows = await this.getExperimentManifestRows(experimentRun.experiment_id, previousRun._id);
+                const [currentExperimentManifestRows, previousExperimentManifestRows] = await Promise.all([
+                    this.apiClient.getExperimentManifestRows(experimentRun.experiment_id, experimentRun.experiment_run_id),
+                    this.apiClient.getExperimentManifestRows(experimentRun.experiment_id, previousRun._id)
+                ]);
                 rows = this.generateEvalImprovementsRegressions(experiment, currentRun, previousRun, currentExperimentManifestRows, previousExperimentManifestRows);
             }
             else {
                 rows = experiment.unique_evaluators.map((evaluator) => {
-                    return [evaluator.evaluator_name, '85% (+1pp)', '🟢 6', '🔴 6'];
+                    return [
+                        evaluator.evaluator_name,
+                        '85% (+1pp)',
+                        `${CONSTANTS.ICONS.SUCCESS} 6`,
+                        `${CONSTANTS.ICONS.ERROR} 6`
+                    ];
                 });
             }
             message = `## Orq experiment report
@@ -39025,64 +39120,31 @@ ${generateMarkdownTable(headers, rows)}
 `;
         await this.upsertComment(commentKey, message);
     }
-    async validateInput() {
+    validateInput() {
         const apiKey = coreExports.getInput('api_key');
         if (!apiKey) {
-            throw new Error('Input `api_key` not set!');
+            throw new OrqExperimentError('Input `api_key` not set!', {
+                phase: 'validation'
+            });
         }
-        this.apiKey = apiKey;
+        this.apiClient = new OrqApiClient(apiKey, CONSTANTS.API_BASE_URL);
         const path = coreExports.getInput('path');
         if (!path) {
-            throw new Error('Input `path` for yaml configs was not set!');
+            throw new OrqExperimentError('Input `path` for yaml configs was not set!', {
+                phase: 'validation'
+            });
         }
         this.path = path;
     }
-    async getExperiment(experimentId) {
-        const experimentResponse = await fetch(`${this.orqApiBaseUrl}/v2/spreadsheets/${experimentId}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.apiKey}`
-            }
-        });
-        const experiment = (await experimentResponse.json());
-        coreExports.info(`Get experiment result ${JSON.stringify(experiment)}`);
-        return experiment;
-    }
-    async runExperiment(payload) {
-        coreExports.info(`Run experiment ${JSON.stringify(payload)}`);
-        const response = await fetch(`${this.orqApiBaseUrl}/v2/deployments/${payload.deployment_key}/experiment`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.apiKey}`
-            },
-            body: JSON.stringify({
-                type: 'deployment_experiment',
-                experiment_key: payload.experiment_key,
-                dataset_id: payload.dataset_id,
-                ...(payload.context && {
-                    context: payload.context
-                }),
-                ...(payload.evaluators && {
-                    evaluators: payload.evaluators
-                })
-            })
-        });
-        const data = (await response.json());
-        return data;
-    }
-    async waitForExperimentManifestRunCompletion(payload) {
-        while (true) {
-            coreExports.info(`Get experiment manifest status ${JSON.stringify(payload)}`);
-            const experimentManifestResponse = await fetch(`${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${this.apiKey}`
-                }
+    async waitForExperimentManifestRunCompletion(experimentRun) {
+        if (!this.apiClient) {
+            throw new OrqExperimentError('API client not initialized', {
+                phase: 'api_call'
             });
-            const experimentManifest = (await experimentManifestResponse.json());
+        }
+        while (true) {
+            coreExports.info(`Get experiment manifest status ${JSON.stringify(experimentRun)}`);
+            const experimentManifest = await this.apiClient.getExperimentManifest(experimentRun.experiment_id, experimentRun.experiment_run_id);
             coreExports.info(`Get experiment manifest status result ${JSON.stringify(experimentManifest)}`);
             if (experimentManifest.status === SheetRunStatus.COMPLETED) {
                 break;
@@ -39091,36 +39153,14 @@ ${generateMarkdownTable(headers, rows)}
                 throw new Error('Experiment was cancelled!');
             }
             else if (experimentManifest.status === SheetRunStatus.FAILED) {
-                throw new Error('Experiment failed to run!');
+                throw new OrqExperimentError('Experiment failed to run!', {
+                    experimentId: experimentRun.experiment_id,
+                    phase: 'execution',
+                    details: experimentManifest
+                });
             }
-            await sleep(3);
+            await sleep(CONSTANTS.POLL_INTERVAL_SECONDS);
         }
-    }
-    async getExperimentRunAverageMetrics(experimentId, experimentRunId) {
-        const experimentManifestResponse = await fetch(`${this.orqApiBaseUrl}/v2/spreadsheets/${experimentId}/manifests`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.apiKey}`
-            }
-        });
-        const experimentManifests = (await experimentManifestResponse.json());
-        let currentExperimentRunIndex = -1;
-        let currentRunExperiment = {};
-        for (const [index, experimentManifest] of experimentManifests.entries()) {
-            if (experimentManifest._id === experimentRunId) {
-                currentExperimentRunIndex = index;
-                currentRunExperiment = experimentManifest;
-                break;
-            }
-        }
-        if (currentExperimentRunIndex === -1)
-            return [null, null];
-        if (currentExperimentRunIndex + 1 >= experimentManifests.length) {
-            return [currentRunExperiment, null];
-        }
-        const previousRunExperiment = experimentManifests[currentExperimentRunIndex + 1];
-        return [currentRunExperiment, previousRunExperiment];
     }
     async findExistingComment(key) {
         const { owner, repo, issue_number } = this.pullRequest;
@@ -39218,7 +39258,6 @@ ${generateMarkdownTable(headers, rows)}
 async function run() {
     try {
         const action = new OrqExperimentAction();
-        await action.validateInput();
         await action.run();
     }
     catch (error) {

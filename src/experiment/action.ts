@@ -12,17 +12,66 @@ import type {
   GithubPullRequest,
   ExperimentManifest,
   PaginatedExperimentManifestRows,
-  Experiment
+  Experiment,
+  ExperimentEval,
+  ExperimentManifestRow
 } from './types.js'
 import { SheetRunStatus } from './enums.js'
+import { OrqApiClient } from './api-client.js'
+import { OrqExperimentError } from './errors.js'
+import { CONSTANTS } from './constants.js'
+
+// Type guards
+function isLLMEvalValue(value: unknown): value is { value: number | boolean } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'value' in value &&
+    (typeof (value as { value: unknown }).value === 'number' ||
+      typeof (value as { value: unknown }).value === 'boolean')
+  )
+}
+
+function isBertScoreValue(value: unknown): value is {
+  f1: number
+  precision: number
+  recall: number
+} {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'f1' in value &&
+    'precision' in value &&
+    'recall' in value &&
+    typeof (value as { f1: unknown; precision: unknown; recall: unknown })
+      .f1 === 'number' &&
+    typeof (value as { f1: unknown; precision: unknown; recall: unknown })
+      .precision === 'number' &&
+    typeof (value as { f1: unknown; precision: unknown; recall: unknown })
+      .recall === 'number'
+  )
+}
+
+function isRougeScoreValue(value: unknown): value is {
+  rouge_1: { f1: number; precision: number; recall: number }
+  rouge_2: { f1: number; precision: number; recall: number }
+  rouge_l: { f1: number; precision: number; recall: number }
+} {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'rouge_1' in value &&
+    'rouge_2' in value &&
+    'rouge_l' in value
+  )
+}
 
 class OrqExperimentAction {
   private octokit: GithubOctokit
   private context: GithubContext
   private pullRequest: GithubPullRequest
-  private apiKey = ''
-  private path = ''
-  private orqApiBaseUrl = 'https://my.staging.orq.ai'
+  private apiClient: OrqApiClient | null = null
+  private path: string = ''
 
   constructor() {
     this.octokit = github.getOctokit(core.getInput('github_token'))
@@ -37,14 +86,79 @@ class OrqExperimentAction {
     }
   }
 
+  private extractEvalValue(
+    cell: ExperimentManifestRow,
+    evaluatorId: string
+  ): Record<string, number> {
+    const mapper: Record<string, number> = {}
+
+    const { type, value } = cell.value
+
+    switch (type) {
+      case 'number':
+        if (typeof value === 'number') {
+          mapper[evaluatorId] = value
+        }
+        break
+      case 'boolean':
+        if (typeof value === 'boolean') {
+          mapper[evaluatorId] = value
+            ? CONSTANTS.PERFECT_SCORE
+            : CONSTANTS.FAILED_SCORE
+        }
+        break
+      case 'llm_eval':
+        if (isLLMEvalValue(value)) {
+          if (typeof value.value === 'boolean') {
+            mapper[evaluatorId] = value.value
+              ? CONSTANTS.PERFECT_SCORE
+              : CONSTANTS.FAILED_SCORE
+          } else if (typeof value.value === 'number') {
+            mapper[evaluatorId] = value.value
+          }
+        }
+        break
+      case 'bert_score':
+        if (isBertScoreValue(value)) {
+          mapper[`${evaluatorId}_bert_score_f1`] = value.f1
+          mapper[`${evaluatorId}_bert_score_precision`] = value.precision
+          mapper[`${evaluatorId}_bert_score_recall`] = value.recall
+        }
+        break
+      case 'rouge_n':
+        if (isRougeScoreValue(value)) {
+          mapper[`${evaluatorId}_rouge_1_f1`] = value.rouge_1.f1
+          mapper[`${evaluatorId}_rouge_1_precision`] = value.rouge_1.precision
+          mapper[`${evaluatorId}_rouge_1_recall`] = value.rouge_1.recall
+          mapper[`${evaluatorId}_rouge_2_f1`] = value.rouge_2.f1
+          mapper[`${evaluatorId}_rouge_2_precision`] = value.rouge_2.precision
+          mapper[`${evaluatorId}_rouge_2_recall`] = value.rouge_2.recall
+          mapper[`${evaluatorId}_rouge_l_f1`] = value.rouge_l.f1
+          mapper[`${evaluatorId}_rouge_l_precision`] = value.rouge_l.precision
+          mapper[`${evaluatorId}_rouge_l_recall`] = value.rouge_l.recall
+        }
+        break
+    }
+
+    return mapper
+  }
+
+  /**
+   * Main entry point for the GitHub Action
+   * Processes config changes and runs experiments
+   */
   async run(): Promise<void> {
+    this.validateInput()
+
     if (!this.pullRequest) {
-      throw new Error('Pull request not found!')
+      throw new OrqExperimentError('Pull request not found!', {
+        phase: 'initialization'
+      })
     }
 
     const configChanges = await this.getConfigChanges()
 
-    const experimentRuns = [] as Promise<void>[]
+    const experimentRuns: Promise<void>[] = []
 
     for (const configChange of configChanges) {
       const experimentRun = this.orchestrateExperimentRun(configChange)
@@ -54,8 +168,8 @@ class OrqExperimentAction {
     await Promise.all(experimentRuns)
   }
 
-  normalizeMetrics(metrics: Record<string, number>) {
-    const normalizeMetrics = {} as Record<string, number>
+  normalizeMetrics(metrics: Record<string, number>): Record<string, number> {
+    const normalizeMetrics: Record<string, number> = {}
 
     for (const metricKey of Object.keys(metrics)) {
       const newMetricKey = metricKey.split('_').slice(1).join('_')
@@ -69,8 +183,8 @@ class OrqExperimentAction {
   evaluatorColumnIdMapper(
     evalKeys: string[],
     experimentManifest: ExperimentManifest
-  ) {
-    const mapper = {} as Record<string, string>
+  ): Record<string, string> {
+    const mapper: Record<string, string> = {}
 
     for (const evalKey of evalKeys) {
       const normalizeEvalKey = evalKey.includes('_')
@@ -93,17 +207,146 @@ class OrqExperimentAction {
     return mapper
   }
 
-  generateEvalImprovementsRegressions(
+  private calculateEvalScoreDifferences(
+    evalValues: Record<string, number>[],
+    previousEvalValues: Record<string, number>[],
+    metricId: string
+  ): { improvements: number; regressions: number } {
+    let improvements = 0
+    let regressions = 0
+
+    for (const [index, evaluator] of evalValues.entries()) {
+      const score = evaluator[metricId] - previousEvalValues[index][metricId]
+      if (score > 0) {
+        improvements++
+      } else if (score < 0) {
+        regressions++
+      }
+    }
+
+    return { improvements, regressions }
+  }
+
+  private formatScoreDisplay(
+    currentScore: number,
+    previousScore: number
+  ): string {
+    const diff = currentScore - previousScore
+    if (diff === 0) return `${currentScore}%`
+    return `${currentScore}% ${diff > 0 ? `(+${diff}pp)` : `(-${Math.abs(diff)}pp)`}`
+  }
+
+  private formatImprovementsRegressions(
+    improvements: number,
+    regressions: number
+  ): [string, string] {
+    return [
+      improvements === 0
+        ? CONSTANTS.ICONS.NEUTRAL
+        : `${CONSTANTS.ICONS.SUCCESS} ${improvements}`,
+      regressions === 0
+        ? CONSTANTS.ICONS.NEUTRAL
+        : `${CONSTANTS.ICONS.ERROR} ${regressions}`
+    ]
+  }
+
+  private processBertScoreEval(
+    evaluator: ExperimentEval,
+    evalValues: Record<string, number>[],
+    previousEvalValues: Record<string, number>[],
+    currentRunMetrics: Record<string, number>,
+    previousRunMetrics: Record<string, number>
+  ): string[][] {
+    const metrics = CONSTANTS.BERT_SCORE_METRICS.map((suffix) => ({
+      suffix,
+      label: suffix.charAt(0).toUpperCase() + suffix.slice(1)
+    }))
+    const results: string[][] = []
+
+    for (const metric of metrics) {
+      const metricId = `${evaluator.evaluator_id}_bert_score_${metric.suffix}`
+      const currentScore = currentRunMetrics[metricId]
+      const previousScore = previousRunMetrics[metricId]
+      const { improvements, regressions } = this.calculateEvalScoreDifferences(
+        evalValues,
+        previousEvalValues,
+        metricId
+      )
+      const [improvementsStr, regressionsStr] =
+        this.formatImprovementsRegressions(improvements, regressions)
+
+      results.push([
+        `${evaluator.evaluator_name} - ${metric.label}`,
+        this.formatScoreDisplay(currentScore, previousScore),
+        improvementsStr,
+        regressionsStr
+      ])
+    }
+
+    return results
+  }
+
+  private processStandardEval(
+    evaluator: ExperimentEval,
+    evalValues: Record<string, number>[],
+    previousEvalValues: Record<string, number>[],
+    currentRunMetrics: Record<string, number>,
+    previousRunMetrics: Record<string, number>
+  ): string[] | null {
+    try {
+      const currentScore = currentRunMetrics[evaluator.evaluator_id]
+      const previousScore = previousRunMetrics[evaluator.evaluator_id]
+      const { improvements, regressions } = this.calculateEvalScoreDifferences(
+        evalValues,
+        previousEvalValues,
+        evaluator.evaluator_id
+      )
+      const [improvementsStr, regressionsStr] =
+        this.formatImprovementsRegressions(improvements, regressions)
+
+      return [
+        evaluator.evaluator_name,
+        this.formatScoreDisplay(currentScore, previousScore),
+        improvementsStr,
+        regressionsStr
+      ]
+    } catch (error) {
+      core.error(error as string)
+      return null
+    }
+  }
+
+  private collectEvalValues(
+    manifestRows: PaginatedExperimentManifestRows,
+    evalColumnId: string,
+    evaluatorId: string
+  ): Record<string, number>[] {
+    const evalValues: Record<string, number>[] = []
+
+    for (const row of manifestRows.items) {
+      let mapper: Record<string, number> = {}
+      for (const cell of row.cells) {
+        if (cell.column_id === evalColumnId) {
+          mapper = { ...mapper, ...this.extractEvalValue(cell, evaluatorId) }
+        }
+      }
+      evalValues.push(mapper)
+    }
+
+    return evalValues
+  }
+
+  private generateEvalImprovementsRegressions(
     experiment: Experiment,
     currentRun: ExperimentManifest,
     previousRun: ExperimentManifest,
     currentManifestRows: PaginatedExperimentManifestRows,
     previousManifestRows: PaginatedExperimentManifestRows
-  ) {
+  ): string[][] {
     core.info('generate regressions')
     const uniqueEvals = experiment.unique_evaluators
 
-    const evals = []
+    const evals: string[][] = []
 
     const currentRunMetrics = this.normalizeMetrics(currentRun.metrics)
     const previousRunMetrics = this.normalizeMetrics(previousRun.metrics)
@@ -121,268 +364,39 @@ class OrqExperimentAction {
       core.info(`evaluator ${JSON.stringify(evaluator)}`)
       const evalColumnId = evalColumnIdMapper[evaluator.evaluator_id]
 
-      const evalValues = [] as Record<string, number>[]
-      const previousEvalValues = [] as Record<string, number>[]
+      const evalValues = this.collectEvalValues(
+        currentManifestRows,
+        evalColumnId,
+        evaluator.evaluator_id
+      )
+      const previousEvalValues = this.collectEvalValues(
+        previousManifestRows,
+        evalColumnId,
+        evaluator.evaluator_id
+      )
 
-      for (const row of currentManifestRows.items) {
-        const mapper = {} as Record<string, number>
-        for (const cell of row.cells) {
-          if (cell.column_id === evalColumnId) {
-            if (cell.value.type === 'number') {
-              mapper[evaluator.evaluator_id] = cell.value.value as number
-            } else if (cell.value.type === 'boolean') {
-              mapper[evaluator.evaluator_id] = (cell.value.value as boolean)
-                ? 100
-                : 0
-            } else if (cell.value.type === 'llm_eval') {
-              const llmEvalValue = cell.value.value as {
-                value: number | boolean
-              }
-              if (typeof llmEvalValue?.value === 'boolean') {
-                mapper[evaluator.evaluator_id] = (cell.value.value as boolean)
-                  ? 100
-                  : 0
-              } else if (typeof llmEvalValue?.value === 'number') {
-                mapper[evaluator.evaluator_id] = cell.value.value as number
-              }
-            } else if (cell.value.type === 'bert_score') {
-              const bertScoreValue = cell.value.value as {
-                f1: number
-                precision: number
-                recall: number
-              }
-              mapper[`${evaluator.evaluator_id}_bert_score_f1`] =
-                bertScoreValue.f1
-              mapper[`${evaluator.evaluator_id}_bert_score_precision`] =
-                bertScoreValue.precision
-              mapper[`${evaluator.evaluator_id}_bert_score_recall`] =
-                bertScoreValue.recall
-            } else if (cell.value.type === 'rouge_n') {
-              const rougeScoreValue = cell.value.value as {
-                rouge_1: {
-                  f1: number
-                  precision: number
-                  recall: number
-                }
-                rouge_2: {
-                  f1: number
-                  precision: number
-                  recall: number
-                }
-                rouge_l: {
-                  f1: number
-                  precision: number
-                  recall: number
-                }
-              }
-              mapper[`${evaluator.evaluator_id}_rouge_1_f1`] =
-                rougeScoreValue.rouge_1.f1
-              mapper[`${evaluator.evaluator_id}_rouge_1_precision`] =
-                rougeScoreValue.rouge_1.precision
-              mapper[`${evaluator.evaluator_id}_rouge_1_recall`] =
-                rougeScoreValue.rouge_1.recall
-              mapper[`${evaluator.evaluator_id}_rouge_2_f1`] =
-                rougeScoreValue.rouge_2.f1
-              mapper[`${evaluator.evaluator_id}_rouge_2_precision`] =
-                rougeScoreValue.rouge_2.precision
-              mapper[`${evaluator.evaluator_id}_rouge_2_recall`] =
-                rougeScoreValue.rouge_2.recall
-              mapper[`${evaluator.evaluator_id}_rouge_l_f1`] =
-                rougeScoreValue.rouge_l.f1
-              mapper[`${evaluator.evaluator_id}_rouge_l_precision`] =
-                rougeScoreValue.rouge_l.precision
-              mapper[`${evaluator.evaluator_id}_rouge_l_recall`] =
-                rougeScoreValue.rouge_l.recall
-            }
-          }
-        }
-        evalValues.push(mapper)
-      }
-
-      core.info(`Evals values ${JSON.stringify(evalValues)}`)
-
-      for (const row of previousManifestRows.items) {
-        const mapper = {} as Record<string, number>
-        for (const cell of row.cells) {
-          if (cell.column_id === evalColumnId) {
-            if (cell.value.type === 'number') {
-              mapper[evaluator.evaluator_id] = cell.value.value as number
-            } else if (cell.value.type === 'boolean') {
-              mapper[evaluator.evaluator_id] = (cell.value.value as boolean)
-                ? 100
-                : 0
-            } else if (cell.value.type === 'llm_evaluator') {
-              const llmEvalValue = cell.value.value as {
-                value: number | boolean
-              }
-              if (typeof llmEvalValue?.value === 'boolean') {
-                mapper[evaluator.evaluator_id] = (cell.value.value as boolean)
-                  ? 100
-                  : 0
-              } else if (typeof llmEvalValue?.value === 'number') {
-                mapper[evaluator.evaluator_id] = cell.value.value as number
-              }
-            } else if (cell.value.type === 'bert_score') {
-              const bertScoreValue = cell.value.value as {
-                f1: number
-                precision: number
-                recall: number
-              }
-              mapper[`${evaluator.evaluator_id}_bert_score_f1`] =
-                bertScoreValue.f1
-              mapper[`${evaluator.evaluator_id}_bert_score_precision`] =
-                bertScoreValue.precision
-              mapper[`${evaluator.evaluator_id}_bert_score_recall`] =
-                bertScoreValue.recall
-            } else if (cell.value.type === 'rouge_n') {
-              const rougeScoreValue = cell.value.value as {
-                rouge_1: {
-                  f1: number
-                  precision: number
-                  recall: number
-                }
-                rouge_2: {
-                  f1: number
-                  precision: number
-                  recall: number
-                }
-                rouge_l: {
-                  f1: number
-                  precision: number
-                  recall: number
-                }
-              }
-              mapper[`${evaluator.evaluator_id}_rouge_1_f1`] =
-                rougeScoreValue.rouge_1.f1
-              mapper[`${evaluator.evaluator_id}_rouge_1_precision`] =
-                rougeScoreValue.rouge_1.precision
-              mapper[`${evaluator.evaluator_id}_rouge_1_recall`] =
-                rougeScoreValue.rouge_1.recall
-              mapper[`${evaluator.evaluator_id}_rouge_2_f1`] =
-                rougeScoreValue.rouge_2.f1
-              mapper[`${evaluator.evaluator_id}_rouge_2_precision`] =
-                rougeScoreValue.rouge_2.precision
-              mapper[`${evaluator.evaluator_id}_rouge_2_recall`] =
-                rougeScoreValue.rouge_2.recall
-              mapper[`${evaluator.evaluator_id}_rouge_l_f1`] =
-                rougeScoreValue.rouge_l.f1
-              mapper[`${evaluator.evaluator_id}_rouge_l_precision`] =
-                rougeScoreValue.rouge_l.precision
-              mapper[`${evaluator.evaluator_id}_rouge_l_recall`] =
-                rougeScoreValue.rouge_l.recall
-            }
-          }
-        }
-
-        previousEvalValues.push(mapper)
-      }
-
-      core.info(`Evals values ${JSON.stringify(previousEvalValues)}`)
+      core.info(`current Evals values ${JSON.stringify(evalValues)}`)
+      core.info(`previous Evals values ${JSON.stringify(previousEvalValues)}`)
 
       if (evaluator.evaluator_key === 'bert_score') {
-        let evaluator_id = `${evaluator.evaluator_id}_bert_score_f1`
-        let improvements = 0
-        let regressions = 0
-
-        let currentAvgScore = currentRunMetrics[evaluator_id]
-        let previousAvgScore = previousRunMetrics[evaluator_id]
-        let diffAverageScore = currentAvgScore - previousAvgScore
-
-        for (const [index, evalluator] of evalValues.entries()) {
-          const score =
-            evalluator[evaluator_id] - previousEvalValues[index][evaluator_id]
-          if (score > 0) {
-            improvements++
-          } else if (score < 0) {
-            regressions++
-          }
-        }
-
-        evals.push([
-          `${evaluator.evaluator_name} - F1`,
-          `${currentAvgScore}% ${diffAverageScore === 0 ? '' : diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${diffAverageScore}pp)`}`,
-          `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
-          `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
-        ])
-
-        evaluator_id = `${evaluator.evaluator_id}_bert_score_precision`
-        improvements = 0
-        regressions = 0
-
-        currentAvgScore = currentRunMetrics[evaluator_id]
-        previousAvgScore = previousRunMetrics[evaluator_id]
-        diffAverageScore = currentAvgScore - previousAvgScore
-
-        for (const [index, evalluator] of evalValues.entries()) {
-          const score =
-            evalluator[evaluator_id] - previousEvalValues[index][evaluator_id]
-          if (score > 0) {
-            improvements++
-          } else if (score < 0) {
-            regressions++
-          }
-        }
-
-        evals.push([
-          `${evaluator.evaluator_name} - Precision`,
-          `${currentAvgScore}% ${diffAverageScore === 0 ? '' : diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${diffAverageScore}pp)`}`,
-          `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
-          `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
-        ])
-
-        evaluator_id = `${evaluator.evaluator_id}_bert_score_recall`
-        improvements = 0
-        regressions = 0
-
-        currentAvgScore = currentRunMetrics[evaluator_id]
-        previousAvgScore = previousRunMetrics[evaluator_id]
-        diffAverageScore = currentAvgScore - previousAvgScore
-
-        for (const [index, evalluator] of evalValues.entries()) {
-          const score =
-            evalluator[evaluator_id] - previousEvalValues[index][evaluator_id]
-          if (score > 0) {
-            improvements++
-          } else if (score < 0) {
-            regressions++
-          }
-        }
-
-        evals.push([
-          `${evaluator.evaluator_name} - Recall`,
-          `${currentAvgScore} ${diffAverageScore === 0 ? '' : diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${Math.abs(diffAverageScore)}pp)`}`,
-          `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
-          `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
-        ])
+        const bertScoreResults = this.processBertScoreEval(
+          evaluator,
+          evalValues,
+          previousEvalValues,
+          currentRunMetrics,
+          previousRunMetrics
+        )
+        evals.push(...bertScoreResults)
       } else {
-        core.info('else')
-        try {
-          let improvements = 0
-          let regressions = 0
-
-          const currentAvgScore = currentRunMetrics[evaluator.evaluator_id]
-          const previousAvgScore = previousRunMetrics[evaluator.evaluator_id]
-          const diffAverageScore = currentAvgScore - previousAvgScore
-
-          for (const [index, evalluator] of evalValues.entries()) {
-            const score =
-              evalluator[evaluator.evaluator_id] -
-              previousEvalValues[index][evaluator.evaluator_id]
-            if (score > 0) {
-              improvements++
-            } else if (score < 0) {
-              regressions++
-            }
-          }
-
-          evals.push([
-            evaluator.evaluator_name,
-            `${currentAvgScore}% ${diffAverageScore === 0 ? '' : diffAverageScore > 0 ? `(+${diffAverageScore}pp)` : `(-${diffAverageScore}pp)`}`,
-            `${improvements === 0 ? '🟡' : `🟢 ${improvements}`}`,
-            `${regressions === 0 ? '🟡' : `🔴 ${regressions}`}`
-          ])
-        } catch (error) {
-          core.error(error as string)
+        const standardEvalResult = this.processStandardEval(
+          evaluator,
+          evalValues,
+          previousEvalValues,
+          currentRunMetrics,
+          previousRunMetrics
+        )
+        if (standardEvalResult) {
+          evals.push(standardEvalResult)
         }
       }
     }
@@ -390,24 +404,9 @@ class OrqExperimentAction {
     return evals
   }
 
-  async getExperimentManifestRows(
-    experimentId: string,
-    experimentRunId: string
-  ) {
-    const experimentManifestRowsResponse = await fetch(
-      `${this.orqApiBaseUrl}/v2/spreadsheets/${experimentId}/rows?manifest_id=${experimentRunId}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`
-        }
-      }
-    )
-    return (await experimentManifestRowsResponse.json()) as PaginatedExperimentManifestRows
-  }
-
-  async orchestrateExperimentRun(runPayload: DeploymentExperimentRunPayload) {
+  private async orchestrateExperimentRun(
+    runPayload: DeploymentExperimentRunPayload
+  ): Promise<void> {
     const commentKey = `<!-- orq_experiment_action_${runPayload.experiment_key} -->`
 
     try {
@@ -415,28 +414,37 @@ class OrqExperimentAction {
 ### Running experiment ${runPayload.experiment_key}...`
       await this.upsertComment(commentKey, message)
 
-      const experimentRun = await this.runExperiment(runPayload)
-      const experiment = await this.getExperiment(experimentRun.experiment_id)
+      if (!this.apiClient) {
+        throw new OrqExperimentError('API client not initialized', {
+          phase: 'api_call'
+        })
+      }
+
+      const experimentRun = await this.apiClient.runExperiment(runPayload)
+      const experiment = await this.apiClient.getExperiment(
+        experimentRun.experiment_id
+      )
       await this.waitForExperimentManifestRunCompletion(experimentRun)
       const [currentRun, previousRun] =
-        await this.getExperimentRunAverageMetrics(
+        await this.apiClient.getExperimentRunAverageMetrics(
           experimentRun.experiment_id,
           experimentRun.experiment_run_id
         )
 
       const headers = ['Score', 'Average', 'Improvements', 'Regressions']
-      let rows = []
+      let rows: string[][] = []
       if (currentRun !== null && previousRun !== null) {
-        const currentExperimentManifestRows =
-          await this.getExperimentManifestRows(
-            experimentRun.experiment_id,
-            experimentRun.experiment_run_id
-          )
-        const previousExperimentManifestRows =
-          await this.getExperimentManifestRows(
-            experimentRun.experiment_id,
-            previousRun._id
-          )
+        const [currentExperimentManifestRows, previousExperimentManifestRows] =
+          await Promise.all([
+            this.apiClient.getExperimentManifestRows(
+              experimentRun.experiment_id,
+              experimentRun.experiment_run_id
+            ),
+            this.apiClient.getExperimentManifestRows(
+              experimentRun.experiment_id,
+              previousRun._id
+            )
+          ])
         rows = this.generateEvalImprovementsRegressions(
           experiment,
           currentRun,
@@ -446,7 +454,12 @@ class OrqExperimentAction {
         )
       } else {
         rows = experiment.unique_evaluators.map((evaluator) => {
-          return [evaluator.evaluator_name, '85% (+1pp)', '🟢 6', '🔴 6']
+          return [
+            evaluator.evaluator_name,
+            '85% (+1pp)',
+            `${CONSTANTS.ICONS.SUCCESS} 6`,
+            `${CONSTANTS.ICONS.ERROR} 6`
+          ]
         })
       }
 
@@ -461,11 +474,11 @@ ${generateMarkdownTable(headers, rows)}
     }
   }
 
-  async showErrorComment(
+  private async showErrorComment(
     commentKey: string,
     experimentKey: string,
     error: unknown
-  ) {
+  ): Promise<void> {
     const message = `## Orq Experiment report
 ### Experiment ${experimentKey}: 
 
@@ -474,90 +487,48 @@ ${generateMarkdownTable(headers, rows)}
     await this.upsertComment(commentKey, message)
   }
 
-  async validateInput(): Promise<void> {
+  private validateInput(): void {
     const apiKey = core.getInput('api_key')
 
     if (!apiKey) {
-      throw new Error('Input `api_key` not set!')
+      throw new OrqExperimentError('Input `api_key` not set!', {
+        phase: 'validation'
+      })
     }
 
-    this.apiKey = apiKey
+    this.apiClient = new OrqApiClient(apiKey, CONSTANTS.API_BASE_URL)
 
     const path = core.getInput('path')
 
     if (!path) {
-      throw new Error('Input `path` for yaml configs was not set!')
+      throw new OrqExperimentError(
+        'Input `path` for yaml configs was not set!',
+        {
+          phase: 'validation'
+        }
+      )
     }
 
     this.path = path
   }
 
-  private async getExperiment(experimentId: string) {
-    const experimentResponse = await fetch(
-      `${this.orqApiBaseUrl}/v2/spreadsheets/${experimentId}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`
-        }
-      }
-    )
-
-    const experiment = (await experimentResponse.json()) as Experiment
-
-    core.info(`Get experiment result ${JSON.stringify(experiment)}`)
-
-    return experiment
-  }
-
-  private async runExperiment(payload: DeploymentExperimentRunPayload) {
-    core.info(`Run experiment ${JSON.stringify(payload)}`)
-    const response = await fetch(
-      `${this.orqApiBaseUrl}/v2/deployments/${payload.deployment_key}/experiment`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`
-        },
-        body: JSON.stringify({
-          type: 'deployment_experiment',
-          experiment_key: payload.experiment_key,
-          dataset_id: payload.dataset_id,
-          ...(payload.context && {
-            context: payload.context
-          }),
-          ...(payload.evaluators && {
-            evaluators: payload.evaluators
-          })
-        })
-      }
-    )
-
-    const data = (await response.json()) as DeploymentExperimentRunResponse
-
-    return data
-  }
-
   private async waitForExperimentManifestRunCompletion(
-    payload: DeploymentExperimentRunResponse
-  ) {
-    while (true) {
-      core.info(`Get experiment manifest status ${JSON.stringify(payload)}`)
-      const experimentManifestResponse = await fetch(
-        `${this.orqApiBaseUrl}/v2/spreadsheets/${payload.experiment_id}/manifests/${payload.experiment_run_id}`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${this.apiKey}`
-          }
-        }
-      )
+    experimentRun: DeploymentExperimentRunResponse
+  ): Promise<void> {
+    if (!this.apiClient) {
+      throw new OrqExperimentError('API client not initialized', {
+        phase: 'api_call'
+      })
+    }
 
-      const experimentManifest =
-        (await experimentManifestResponse.json()) as ExperimentManifest
+    while (true) {
+      core.info(
+        `Get experiment manifest status ${JSON.stringify(experimentRun)}`
+      )
+      const experimentManifest = await this.apiClient.getExperimentManifest(
+        experimentRun.experiment_id,
+        experimentRun.experiment_run_id
+      )
 
       core.info(
         `Get experiment manifest status result ${JSON.stringify(experimentManifest)}`
@@ -568,52 +539,15 @@ ${generateMarkdownTable(headers, rows)}
       } else if (experimentManifest.status === SheetRunStatus.CANCELLED) {
         throw new Error('Experiment was cancelled!')
       } else if (experimentManifest.status === SheetRunStatus.FAILED) {
-        throw new Error('Experiment failed to run!')
+        throw new OrqExperimentError('Experiment failed to run!', {
+          experimentId: experimentRun.experiment_id,
+          phase: 'execution',
+          details: experimentManifest
+        })
       }
 
-      await sleep(3)
+      await sleep(CONSTANTS.POLL_INTERVAL_SECONDS)
     }
-  }
-
-  private async getExperimentRunAverageMetrics(
-    experimentId: string,
-    experimentRunId: string
-  ) {
-    const experimentManifestResponse = await fetch(
-      `${this.orqApiBaseUrl}/v2/spreadsheets/${experimentId}/manifests`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`
-        }
-      }
-    )
-
-    const experimentManifests =
-      (await experimentManifestResponse.json()) as ExperimentManifest[]
-
-    let currentExperimentRunIndex = -1
-    let currentRunExperiment = {} as ExperimentManifest
-
-    for (const [index, experimentManifest] of experimentManifests.entries()) {
-      if (experimentManifest._id === experimentRunId) {
-        currentExperimentRunIndex = index
-        currentRunExperiment = experimentManifest
-        break
-      }
-    }
-
-    if (currentExperimentRunIndex === -1) return [null, null]
-
-    if (currentExperimentRunIndex + 1 >= experimentManifests.length) {
-      return [currentRunExperiment, null]
-    }
-
-    const previousRunExperiment =
-      experimentManifests[currentExperimentRunIndex + 1]
-
-    return [currentRunExperiment, previousRunExperiment]
   }
 
   private async findExistingComment(key: string): Promise<number | null> {
@@ -657,7 +591,10 @@ ${generateMarkdownTable(headers, rows)}
     })
   }
 
-  async hasConfigChange(filename: string, base_sha: string) {
+  private async hasConfigChange(
+    filename: string,
+    base_sha: string
+  ): Promise<DeploymentExperimentRunPayload | null> {
     const newRunPayload: DeploymentExperimentRunPayload =
       await this.getDeploymentExperimentRunPayload(filename)
 
@@ -677,7 +614,10 @@ ${generateMarkdownTable(headers, rows)}
     return null
   }
 
-  async getOriginalDeploymentRunPayload(filename: string, commit_hash: string) {
+  private async getOriginalDeploymentRunPayload(
+    filename: string,
+    commit_hash: string
+  ): Promise<DeploymentExperimentRunPayload> {
     const { repo } = this.context
 
     const response = await this.octokit.rest.repos.getContent({
@@ -695,7 +635,9 @@ ${generateMarkdownTable(headers, rows)}
     return originalRunPayload
   }
 
-  async getDeploymentExperimentRunPayload(filename: string) {
+  private async getDeploymentExperimentRunPayload(
+    filename: string
+  ): Promise<DeploymentExperimentRunPayload> {
     const payload: DeploymentExperimentRunPayload = yaml.parse(
       fs.readFileSync(filename).toString()
     )
@@ -703,9 +645,9 @@ ${generateMarkdownTable(headers, rows)}
     return payload
   }
 
-  async getConfigChanges() {
+  private async getConfigChanges(): Promise<DeploymentExperimentRunPayload[]> {
     const { payload, repo } = this.context
-    const payloadChanges = [] as DeploymentExperimentRunPayload[]
+    const payloadChanges: DeploymentExperimentRunPayload[] = []
 
     if (payload) {
       const base = payload.pull_request?.base.sha

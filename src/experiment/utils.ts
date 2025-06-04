@@ -51,3 +51,12 @@ export function decodeBase64String(message: string): string {
     )
   }
 }
+
+export function formatNumber(value: number): string {
+  // Check if the number has no fractional part
+  if (value % 1 === 0) {
+    return value.toString()
+  }
+  // Format to 2 decimal places
+  return value.toFixed(2)
+}

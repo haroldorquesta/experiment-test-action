@@ -38702,6 +38702,14 @@ function decodeBase64String(message) {
         throw new Error(`Invalid base64 string: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
 }
+function formatNumber(value) {
+    // Check if the number has no fractional part
+    if (value % 1 === 0) {
+        return value.toString();
+    }
+    // Format to 2 decimal places
+    return value.toFixed(2);
+}
 
 /**
  * Represents the status of an experiment sheet run
@@ -38974,8 +38982,8 @@ class OrqExperimentAction {
     formatScoreDisplay(currentScore, previousScore) {
         const diff = currentScore - previousScore;
         if (diff === 0)
-            return `${currentScore}%`;
-        return `${currentScore}% ${diff > 0 ? `(+${diff}pp)` : `(-${Math.abs(diff)}pp)`}`;
+            return currentScore.toString();
+        return `${currentScore} ${diff > 0 ? `(+${formatNumber(diff)})` : `(${formatNumber(diff)})`}`;
     }
     formatImprovementsRegressions(improvements, regressions) {
         return [
@@ -39021,7 +39029,7 @@ class OrqExperimentAction {
                 const [improvementsStr, regressionsStr] = this.formatImprovementsRegressions(improvements, regressions);
                 const rougeTypeLabelSuffix = rougeType.toUpperCase().split('_')[1];
                 const rougeTypeLabel = `Rouge ${rougeTypeLabelSuffix.toUpperCase()}`;
-                const label = `${rougeTypeLabel} ${metric.charAt(0).toUpperCase() + metric.slice(1)}`;
+                const label = `${rougeTypeLabel} - ${metric.charAt(0).toUpperCase() + metric.slice(1)}`;
                 results.push([
                     label,
                     this.formatScoreDisplay(currentScore, previousScore),

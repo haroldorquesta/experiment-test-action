@@ -2,7 +2,12 @@ import * as core from '@actions/core'
 import * as github from '@actions/github'
 import yaml from 'yaml'
 import * as fs from 'node:fs'
-import { decodeBase64String, generateMarkdownTable, sleep } from './utils.js'
+import {
+  decodeBase64String,
+  formatNumber,
+  generateMarkdownTable,
+  sleep
+} from './utils.js'
 import type {
   DeploymentExperimentRunResponse,
   DeploymentExperimentRunPayload,
@@ -232,8 +237,8 @@ class OrqExperimentAction {
     previousScore: number
   ): string {
     const diff = currentScore - previousScore
-    if (diff === 0) return `${currentScore}%`
-    return `${currentScore}% ${diff > 0 ? `(+${diff}pp)` : `(-${Math.abs(diff)}pp)`}`
+    if (diff === 0) return currentScore.toString()
+    return `${currentScore} ${diff > 0 ? `(+${formatNumber(diff)})` : `(${formatNumber(diff)})`}`
   }
 
   private formatImprovementsRegressions(
@@ -313,7 +318,7 @@ class OrqExperimentAction {
 
         const rougeTypeLabelSuffix = rougeType.toUpperCase().split('_')[1]
         const rougeTypeLabel = `Rouge ${rougeTypeLabelSuffix.toUpperCase()}`
-        const label = `${rougeTypeLabel} ${metric.charAt(0).toUpperCase() + metric.slice(1)}`
+        const label = `${rougeTypeLabel} - ${metric.charAt(0).toUpperCase() + metric.slice(1)}`
         results.push([
           label,
           this.formatScoreDisplay(currentScore, previousScore),

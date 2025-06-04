@@ -311,8 +311,8 @@ class OrqExperimentAction {
         const [improvementsStr, regressionsStr] =
           this.formatImprovementsRegressions(improvements, regressions)
 
-        const rougeTypeLabels = rougeType.toUpperCase().split('_')
-        const rougeTypeLabel = `${rougeTypeLabels[0].charAt(0).toUpperCase() + rougeTypeLabels[0].slice(1)} ${rougeTypeLabels[1].charAt(0).toUpperCase()}`
+        const rougeTypeLabelSuffix = rougeType.toUpperCase().split('_')[1]
+        const rougeTypeLabel = `Rouge ${rougeTypeLabelSuffix.toUpperCase()}`
         const label = `${rougeTypeLabel} ${metric.charAt(0).toUpperCase() + metric.slice(1)}`
         results.push([
           label,

@@ -38707,16 +38707,23 @@ function formatNumber(value) {
     if (value % 1 === 0) {
         return value.toString();
     }
-    // For very small numbers or numbers that need more precision,
-    // convert to string and remove trailing zeros
-    const str = value.toString();
-    if (str.includes('e') || value < 0.01) {
-        // Handle scientific notation or very small numbers
-        return parseFloat(value.toString()).toString();
+    // For numbers >= 0.01, use 2 decimal places
+    if (Math.abs(value) >= 0.01) {
+        return parseFloat(value.toFixed(2)).toString();
     }
-    // For regular decimals, format to 2 decimal places and remove trailing zeros
-    return parseFloat(value.toFixed(2)).toString();
+    // For very small numbers, use 2 significant digits
+    return parseFloat(value.toPrecision(2)).toString();
 }
+// Examples:
+console.log(formatNumber(5)); // "5"
+console.log(formatNumber(5.0)); // "5"
+console.log(formatNumber(5.1)); // "5.1"
+console.log(formatNumber(5.12)); // "5.12"
+console.log(formatNumber(5.123)); // "5.12"
+console.log(formatNumber(0.000019999999999999998)); // "0.000020"
+console.log(formatNumber(0.00000123)); // "0.0000012"
+console.log(formatNumber(0.0567)); // "0.057"
+console.log(formatNumber(0.1234)); // "0.12"
 
 /**
  * Represents the status of an experiment sheet run

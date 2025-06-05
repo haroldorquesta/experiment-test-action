@@ -39073,11 +39073,11 @@ class OrqExperimentAction {
         for (const row of manifestRows.items) {
             let mapper = {};
             for (const cell of row.cells) {
-                coreExports.info(`Cell: ${cell}, evalColumnId: ${evalColumnId}, evaluatorId: ${evaluatorId}`);
+                coreExports.info(`Cell: ${JSON.stringify(cell)}, evalColumnId: ${evalColumnId}, evaluatorId: ${evaluatorId}`);
                 if (cell.column_id === evalColumnId) {
                     coreExports.info('Matched');
                     const extractedValue = this.extractEvalValue(cell, evaluatorId);
-                    coreExports.info(`extractedValue: ${extractedValue}`);
+                    coreExports.info(`extractedValue: ${JSON.stringify(extractedValue)}`);
                     mapper = { ...mapper, ...extractedValue };
                     break;
                 }

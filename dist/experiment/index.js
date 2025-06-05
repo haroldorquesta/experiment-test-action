@@ -34879,19 +34879,22 @@ class OrqExperimentClientApi {
             }
         });
     }
-    async getExperimentRunAverageMetrics(experimentId, experimentRunId) {
-        const experimentManifests = await this.getAllExperimentManifests(experimentId);
-        coreExports.info(`experiment averange Run metrics ${JSON.stringify(experimentManifests)}`);
-        const currentRunIndex = experimentManifests.findIndex((manifest) => manifest._id === experimentRunId);
-        const currentRun = currentRunIndex !== -1 ? experimentManifests[currentRunIndex] : null;
-        // core.info(`current run: ${currentRun?._id}`)
-        // core.info(JSON.stringify(currentRun))
-        const previousRun = currentRunIndex !== -1 && currentRunIndex + 1 < experimentManifests.length
-            ? experimentManifests[currentRunIndex + 1]
-            : null;
-        // core.info(`previous run: ${previousRun?._id}`)
-        // core.info(JSON.stringify(previousRun))
-        return [currentRun || null, previousRun || null];
+    async getCurrentAndPreviousRunManifest(experimentId, experimentRunId) {
+        const allRuns = await this.getAllExperimentManifests(experimentId);
+        const currentRunIndex = allRuns.findIndex((manifest) => manifest._id === experimentRunId);
+        if (currentRunIndex === -1) {
+            throw new OrqExperimentError(`Current experiment not found!`);
+        }
+        const currentRun = allRuns[currentRunIndex];
+        let previousRun = null;
+        if (currentRunIndex !== -1 && currentRunIndex + 1 < allRuns.length) {
+            const potentialPreviousRun = allRuns[currentRunIndex + 1];
+            if (potentialPreviousRun.status !== SheetRunStatus.COMPLETED) {
+                throw new OrqExperimentError(`Previous experiment run has status '${potentialPreviousRun.status}', expected 'COMPLETED'`);
+            }
+            previousRun = potentialPreviousRun;
+        }
+        return [currentRun, previousRun];
     }
 }
 
@@ -39290,37 +39293,15 @@ class OrqExperimentAction {
         const experiment = await this.apiClient.getExperiment(experimentRun.experiment_id);
         coreExports.info(JSON.stringify(experiment));
         coreExports.info('get current run');
-        // Get results
-        const currentRun = await this.apiClient.getExperimentManifest(experimentRun.experiment_id, experimentRun.experiment_run_id);
+        const [currentRun, previousRun] = await this.apiClient.getCurrentAndPreviousRunManifest(experimentRun.experiment_id, experimentRun.experiment_run_id);
         coreExports.info(JSON.stringify(currentRun));
         coreExports.info('get experiment manifest rows');
         const currentManifestRows = await this.apiClient.getExperimentManifestRows(experimentRun.experiment_id, experimentRun.experiment_run_id);
         coreExports.info(JSON.stringify(currentManifestRows));
         coreExports.info('get previous run');
-        // Try to get previous run for comparison
-        let previousRun = null;
         let previousManifestRows = null;
-        try {
-            coreExports.info('get all runs');
-            const allRuns = await this.apiClient.getAllExperimentManifests(experimentRun.experiment_id);
-            coreExports.info('currentRunIndex');
-            // Find the current run index first
-            // Results are already sorted in descending date order
-            const currentRunIndex = allRuns.findIndex((run) => run._id === experimentRun.experiment_run_id);
-            coreExports.info(currentRunIndex.toString());
-            // Previous run is at index + 1, check bounds first
-            if (currentRunIndex !== -1 && currentRunIndex + 1 < allRuns.length) {
-                const potentialPreviousRun = allRuns[currentRunIndex + 1];
-                if (potentialPreviousRun.status !== SheetRunStatus.COMPLETED) {
-                    throw new OrqExperimentError(`Previous experiment run has status '${potentialPreviousRun.status}', expected 'COMPLETED'`);
-                }
-                coreExports.info('previous run');
-                previousRun = potentialPreviousRun;
-                previousManifestRows = await this.apiClient.getExperimentManifestRows(experimentRun.experiment_id, previousRun._id);
-            }
-        }
-        catch (error) {
-            throw new OrqExperimentError(`Failed to get previous run for comparison: ${error}`);
+        if (previousRun) {
+            previousManifestRows = await this.apiClient.getExperimentManifestRows(experimentRun.experiment_id, previousRun._id);
         }
         coreExports.info(JSON.stringify(previousRun));
         coreExports.info('previous maniefst rows');

@@ -164,11 +164,11 @@ class OrqExperimentAction {
 
     core.info('get current run')
 
-    // Get results
-    const currentRun = await this.apiClient.getExperimentManifest(
-      experimentRun.experiment_id,
-      experimentRun.experiment_run_id
-    )
+    const [currentRun, previousRun] =
+      await this.apiClient.getCurrentAndPreviousRunManifest(
+        experimentRun.experiment_id,
+        experimentRun.experiment_run_id
+      )
 
     core.info(JSON.stringify(currentRun))
 
@@ -183,45 +183,12 @@ class OrqExperimentAction {
 
     core.info('get previous run')
 
-    // Try to get previous run for comparison
-    let previousRun: ExperimentManifest | null = null
     let previousManifestRows: ExperimentManifestRow[] | null = null
 
-    try {
-      core.info('get all runs')
-      const allRuns = await this.apiClient.getAllExperimentManifests(
-        experimentRun.experiment_id
-      )
-
-      core.info('currentRunIndex')
-      // Find the current run index first
-      // Results are already sorted in descending date order
-      const currentRunIndex = allRuns.findIndex(
-        (run) => run._id === experimentRun.experiment_run_id
-      )
-
-      core.info(currentRunIndex.toString())
-
-      // Previous run is at index + 1, check bounds first
-      if (currentRunIndex !== -1 && currentRunIndex + 1 < allRuns.length) {
-        const potentialPreviousRun = allRuns[currentRunIndex + 1]
-
-        if (potentialPreviousRun.status !== SheetRunStatus.COMPLETED) {
-          throw new OrqExperimentError(
-            `Previous experiment run has status '${potentialPreviousRun.status}', expected 'COMPLETED'`
-          )
-        }
-
-        core.info('previous run')
-        previousRun = potentialPreviousRun
-        previousManifestRows = await this.apiClient.getExperimentManifestRows(
-          experimentRun.experiment_id,
-          previousRun._id
-        )
-      }
-    } catch (error) {
-      throw new OrqExperimentError(
-        `Failed to get previous run for comparison: ${error}`
+    if (previousRun) {
+      previousManifestRows = await this.apiClient.getExperimentManifestRows(
+        experimentRun.experiment_id,
+        previousRun._id
       )
     }
 

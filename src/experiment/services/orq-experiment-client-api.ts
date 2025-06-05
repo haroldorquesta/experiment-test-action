@@ -9,6 +9,7 @@ import type {
 } from '../types.js'
 import { OrqExperimentError } from '../errors.js'
 import { CONSTANTS } from '../constants.js'
+import { SheetRunStatus } from '../enums.js'
 
 export class OrqExperimentClientApi {
   private apiKey: string
@@ -131,30 +132,36 @@ export class OrqExperimentClientApi {
     )
   }
 
-  async getExperimentRunAverageMetrics(
+  async getCurrentAndPreviousRunManifest(
     experimentId: string,
     experimentRunId: string
-  ): Promise<[ExperimentManifest | null, ExperimentManifest | null]> {
-    const experimentManifests =
-      await this.getAllExperimentManifests(experimentId)
-    core.info(
-      `experiment averange Run metrics ${JSON.stringify(experimentManifests)}`
-    )
+  ): Promise<[ExperimentManifest, ExperimentManifest | null]> {
+    const allRuns = await this.getAllExperimentManifests(experimentId)
 
-    const currentRunIndex = experimentManifests.findIndex(
+    const currentRunIndex = allRuns.findIndex(
       (manifest) => manifest._id === experimentRunId
     )
-    const currentRun =
-      currentRunIndex !== -1 ? experimentManifests[currentRunIndex] : null
-    // core.info(`current run: ${currentRun?._id}`)
-    // core.info(JSON.stringify(currentRun))
-    const previousRun =
-      currentRunIndex !== -1 && currentRunIndex + 1 < experimentManifests.length
-        ? experimentManifests[currentRunIndex + 1]
-        : null
-    // core.info(`previous run: ${previousRun?._id}`)
-    // core.info(JSON.stringify(previousRun))
 
-    return [currentRun || null, previousRun || null]
+    if (currentRunIndex === -1) {
+      throw new OrqExperimentError(`Current experiment not found!`)
+    }
+
+    const currentRun = allRuns[currentRunIndex]
+
+    let previousRun: ExperimentManifest | null = null
+
+    if (currentRunIndex !== -1 && currentRunIndex + 1 < allRuns.length) {
+      const potentialPreviousRun = allRuns[currentRunIndex + 1]
+
+      if (potentialPreviousRun.status !== SheetRunStatus.COMPLETED) {
+        throw new OrqExperimentError(
+          `Previous experiment run has status '${potentialPreviousRun.status}', expected 'COMPLETED'`
+        )
+      }
+
+      previousRun = potentialPreviousRun
+    }
+
+    return [currentRun, previousRun]
   }
 }

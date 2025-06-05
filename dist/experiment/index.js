@@ -38714,16 +38714,6 @@ function formatNumber(value) {
     // For very small numbers, use 2 significant digits
     return parseFloat(value.toPrecision(2)).toString();
 }
-// Examples:
-console.log(formatNumber(5)); // "5"
-console.log(formatNumber(5.0)); // "5"
-console.log(formatNumber(5.1)); // "5.1"
-console.log(formatNumber(5.12)); // "5.12"
-console.log(formatNumber(5.123)); // "5.12"
-console.log(formatNumber(0.000019999999999999998)); // "0.000020"
-console.log(formatNumber(0.00000123)); // "0.0000012"
-console.log(formatNumber(0.0567)); // "0.057"
-console.log(formatNumber(0.1234)); // "0.12"
 
 /**
  * Represents the status of an experiment sheet run

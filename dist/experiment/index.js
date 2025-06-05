@@ -39336,10 +39336,14 @@ class OrqExperimentAction {
     generateEvalComparisonTable(experiment, currentRun, previousRun, currentManifestRows, previousManifestRows) {
         const evalTable = [];
         coreExports.info('current evals');
-        const currentEvals = this.extractEvalValues(experiment, currentRun, currentManifestRows);
+        const currentRunNormalizedMetrics = this.metricsProcessor.normalizeMetrics(currentRun.metrics);
+        const currentRunNormalizedMetricKeys = Object.keys(currentRunNormalizedMetrics);
+        const previousRunNormalizedMetrics = this.metricsProcessor.normalizeMetrics(previousRun.metrics);
+        const previousRunNormalizedMetricKeys = Object.keys(previousRunNormalizedMetrics);
+        const currentEvals = this.extractEvalValues(experiment, currentRun, currentManifestRows, currentRunNormalizedMetricKeys);
         coreExports.info(JSON.stringify(currentEvals));
         coreExports.info('previous evals');
-        const previousEvals = this.extractEvalValues(experiment, previousRun, previousManifestRows);
+        const previousEvals = this.extractEvalValues(experiment, previousRun, previousManifestRows, previousRunNormalizedMetricKeys);
         coreExports.info(JSON.stringify(previousEvals));
         for (const evaluator of experiment.unique_evaluators) {
             const evalId = evaluator.evaluator_id;
@@ -39347,8 +39351,6 @@ class OrqExperimentAction {
             // Get all metric keys for this evaluator based on type
             const metricKeys = this.getMetricKeysForEvaluator(evalId, evalType);
             for (const metricKey of metricKeys) {
-                let totalCurrentScore = 0;
-                let totalPreviousScore = 0;
                 let improvements = 0;
                 let regressions = 0;
                 let validComparisons = 0;
@@ -39358,40 +39360,48 @@ class OrqExperimentAction {
                     const currentScore = currentEvals[i][metricKey];
                     const previousScore = previousEvals[i][metricKey];
                     if (currentScore !== undefined && previousScore !== undefined) {
-                        totalCurrentScore += currentScore;
-                        totalPreviousScore += previousScore;
                         validComparisons++;
                         const diff = currentScore - previousScore;
-                        if (diff > 0) {
-                            improvements++;
+                        if (['orq_cost', 'orq_latency'].includes(evalId)) {
+                            if (diff < 0) {
+                                improvements++;
+                            }
+                            else if (diff > 0) {
+                                regressions++;
+                            }
                         }
-                        else if (diff < 0) {
-                            regressions++;
+                        else {
+                            if (diff > 0) {
+                                improvements++;
+                            }
+                            else if (diff < 0) {
+                                regressions++;
+                            }
                         }
                     }
                 }
                 if (validComparisons === 0) {
                     continue; // Skip this metric if no valid comparisons
                 }
-                const currentAverage = totalCurrentScore / validComparisons;
-                const previousAverage = totalPreviousScore / validComparisons;
+                const currentAverage = currentRunNormalizedMetrics[evalId];
+                const previousAverage = previousRunNormalizedMetrics[evalId];
                 const averageDiff = currentAverage - previousAverage;
                 const improvementDisplay = improvements > 0
                     ? `${CONSTANTS.UNICODE.SUCCESS} ${improvements}`
-                    : `${CONSTANTS.UNICODE.NEUTRAL} 0`;
+                    : `${CONSTANTS.UNICODE.NEUTRAL}`;
                 const regressionDisplay = regressions > 0
                     ? `${CONSTANTS.UNICODE.ERROR} ${regressions}`
-                    : `${CONSTANTS.UNICODE.NEUTRAL} 0`;
+                    : `${CONSTANTS.UNICODE.NEUTRAL}`;
                 // Format average with difference in parentheses
                 const diffSign = averageDiff > 0 ? '+' : '';
-                const averageDisplay = `${currentAverage.toFixed(2)} (${diffSign}${averageDiff.toFixed(2)})`;
+                const averageDisplay = `${formatNumber(currentAverage)} (${diffSign}${formatNumber(averageDiff)})`;
                 // Generate display name for the metric
                 const displayName = this.getMetricDisplayName(evalId, metricKey, evaluator.evaluator_name);
                 evalTable.push([
-                    displayName, // Score (eval name with metric)
-                    averageDisplay, // Current average with difference in parentheses
-                    improvementDisplay, // Improvements with unicode
-                    regressionDisplay // Regressions with unicode
+                    displayName,
+                    averageDisplay,
+                    improvementDisplay,
+                    regressionDisplay
                 ]);
             }
         }
@@ -39439,16 +39449,17 @@ class OrqExperimentAction {
         }
         return baseName;
     }
-    extractEvalValues(experiment, run, manifestRows) {
+    extractEvalValues(experiment, run, manifestRows, normalizedMetricKeys) {
         const evalValues = [];
         coreExports.info('extractevalvalues context');
-        const evalColumnIdMapper = this.evaluatorColumnIdMapper(Object.keys(this.metricsProcessor.normalizeMetrics(run.metrics)), run);
+        const evalColumnIdMapper = this.evaluatorColumnIdMapper(normalizedMetricKeys, run);
         coreExports.info(`evalColumnIdMapper: ${JSON.stringify(evalColumnIdMapper)}`);
         for (const row of manifestRows) {
             let mapper = {};
             coreExports.info(`row: ${JSON.stringify(row)}`);
             for (const evaluator of experiment.unique_evaluators) {
                 const evalId = evaluator.evaluator_id;
+                mapper[`${evalId}_current_avg`] = normalizedMetrics[evalId];
                 coreExports.info(`evaluator: ${JSON.stringify(evaluator)}`);
                 const evalColumnId = evalColumnIdMapper[evalId];
                 coreExports.info(`evalColumnId: ${JSON.stringify(evalColumnId)}`);

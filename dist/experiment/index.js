@@ -38996,6 +38996,7 @@ class MetricsProcessor {
     extractEvalValue(cell, evaluatorId) {
         const mapper = {};
         const { type, value } = cell.value;
+        coreExports.info(`extract actual value: type${type}, value${JSON.stringify(value)}`);
         switch (type) {
             case 'number':
             case 'cost':

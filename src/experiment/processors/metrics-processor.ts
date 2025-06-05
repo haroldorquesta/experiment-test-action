@@ -37,6 +37,9 @@ export class MetricsProcessor {
   ): Record<string, number> {
     const mapper: Record<string, number> = {}
     const { type, value } = cell.value
+    core.info(
+      `extract actual value: type${type}, value${JSON.stringify(value)}`
+    )
 
     switch (type) {
       case 'number':

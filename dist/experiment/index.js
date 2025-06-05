@@ -38953,16 +38953,21 @@ class OrqExperimentAction {
     evaluatorColumnIdMapper(evalKeys, experimentManifest) {
         const mapper = {};
         for (const evalKey of evalKeys) {
-            const normalizeEvalKey = evalKey.includes('_')
-                ? evalKey.split('_')[0]
-                : evalKey;
+            const evalKeyList = evalKey.split('_');
+            let normalizeEvalKey = '';
+            if (evalKeyList.length === 1) {
+                normalizeEvalKey = evalKeyList[0];
+            }
+            else {
+                normalizeEvalKey = evalKeyList.slice(1).join('_');
+            }
             for (const column of experimentManifest.columns) {
                 if ('config' in column &&
                     'evaluator_id' in column.config &&
                     normalizeEvalKey === column.config['evaluator_id']) {
                     mapper[evalKey] = column.id;
                 }
-                if (column.key === normalizeEvalKey) {
+                else if (column.key === normalizeEvalKey) {
                     mapper[evalKey] = column.id;
                 }
             }

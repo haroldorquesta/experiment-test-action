@@ -1,4 +1,5 @@
 import * as github from '@actions/github'
+import * as core from '@actions/core'
 import type {
   GithubOctokit,
   GithubPullRequest,
@@ -120,6 +121,8 @@ export class GithubService {
     filename: string,
     basePath: string
   ): boolean {
+    core.info(`filename: ${filename}`)
+    core.info(`basePath: ${basePath}`)
     const isInPath = filename.startsWith(
       basePath.endsWith('/') ? basePath : `${basePath}/`
     )

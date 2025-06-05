@@ -33,6 +33,7 @@ class OrqExperimentAction {
 
     const apiKey = core.getInput('api_key')
     this.apiClient = new OrqExperimentClientApi(apiKey)
+    this.path = core.getInput('path')
   }
 
   async run(): Promise<void> {

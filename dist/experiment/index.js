@@ -38928,6 +38928,8 @@ class GithubService {
             .map((file) => file.filename);
     }
     isOrqExperimentConfigFile(filename, basePath) {
+        coreExports.info(`filename: ${filename}`);
+        coreExports.info(`basePath: ${basePath}`);
         const isInPath = filename.startsWith(basePath.endsWith('/') ? basePath : `${basePath}/`);
         const isYamlFile = filename.endsWith('.yaml') || filename.endsWith('.yml');
         return isInPath && isYamlFile;
@@ -39207,6 +39209,7 @@ class OrqExperimentAction {
         this.commentFormatter = new CommentFormatter();
         const apiKey = coreExports.getInput('api_key');
         this.apiClient = new OrqExperimentClientApi(apiKey);
+        this.path = coreExports.getInput('path');
     }
     async run() {
         try {

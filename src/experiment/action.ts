@@ -441,7 +441,7 @@ class OrqExperimentAction {
     )
     const previousEvalColumnIdMapper = this.evaluatorColumnIdMapper(
       Object.keys(previousRunMetrics),
-      currentRun
+      previousRun
     )
 
     core.info(`evalColumnIdMapper ${JSON.stringify(currentEvalColumnIdMapper)}`)

@@ -39114,7 +39114,7 @@ class OrqExperimentAction {
         coreExports.info('previousRunMetrics');
         coreExports.info(JSON.stringify(previousRunMetrics));
         const currentEvalColumnIdMapper = this.evaluatorColumnIdMapper(Object.keys(currentRunMetrics), currentRun);
-        const previousEvalColumnIdMapper = this.evaluatorColumnIdMapper(Object.keys(previousRunMetrics), currentRun);
+        const previousEvalColumnIdMapper = this.evaluatorColumnIdMapper(Object.keys(previousRunMetrics), previousRun);
         coreExports.info(`evalColumnIdMapper ${JSON.stringify(currentEvalColumnIdMapper)}`);
         coreExports.info(`previousColumnIdMapper ${JSON.stringify(previousEvalColumnIdMapper)}`);
         coreExports.info(`unique evals ${JSON.stringify(uniqueEvals)}`);

@@ -125,10 +125,12 @@ export class OrqApiClient {
     )
     const currentRun =
       currentRunIndex !== -1 ? experimentManifests[currentRunIndex] : null
+    core.info(`current run: ${currentRun?._id}`)
     const previousRun =
       currentRunIndex !== -1 && currentRunIndex + 1 < experimentManifests.length
         ? experimentManifests[currentRunIndex + 1]
         : null
+    core.info(`previous run: ${currentRun?._id}`)
 
     return [currentRun || null, previousRun || null]
   }

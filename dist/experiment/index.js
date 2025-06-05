@@ -38808,9 +38808,11 @@ class OrqApiClient {
         coreExports.info(`experiment averange Run metrics ${JSON.stringify(experimentManifests)}`);
         const currentRunIndex = experimentManifests.findIndex((manifest) => manifest._id === experimentRunId);
         const currentRun = currentRunIndex !== -1 ? experimentManifests[currentRunIndex] : null;
+        coreExports.info(`current run: ${currentRun?._id}`);
         const previousRun = currentRunIndex !== -1 && currentRunIndex + 1 < experimentManifests.length
             ? experimentManifests[currentRunIndex + 1]
             : null;
+        coreExports.info(`previous run: ${currentRun?._id}`);
         return [currentRun || null, previousRun || null];
     }
 }

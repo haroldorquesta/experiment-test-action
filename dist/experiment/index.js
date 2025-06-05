@@ -39459,7 +39459,6 @@ class OrqExperimentAction {
             coreExports.info(`row: ${JSON.stringify(row)}`);
             for (const evaluator of experiment.unique_evaluators) {
                 const evalId = evaluator.evaluator_id;
-                mapper[`${evalId}_current_avg`] = normalizedMetrics[evalId];
                 coreExports.info(`evaluator: ${JSON.stringify(evaluator)}`);
                 const evalColumnId = evalColumnIdMapper[evalId];
                 coreExports.info(`evalColumnId: ${JSON.stringify(evalColumnId)}`);

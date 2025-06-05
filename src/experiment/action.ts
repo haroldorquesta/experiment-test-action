@@ -432,26 +432,35 @@ class OrqExperimentAction {
     manifestRows: PaginatedExperimentManifestRows
   ): ExperimentEvalResults[] {
     const evalValues: ExperimentEvalResults[] = []
+    core.info('extractevalvalues context')
     const evalColumnIdMapper = this.evaluatorColumnIdMapper(
       Object.keys(this.metricsProcessor.normalizeMetrics(run.metrics)),
       run
     )
 
+    core.info(`evalColumnIdMapper: ${JSON.stringify(evalColumnIdMapper)}`)
+
     for (const row of manifestRows.items) {
       let mapper: ExperimentEvalResults = {}
+      core.info(`row: ${JSON.stringify(row)}`)
 
       for (const evaluator of experiment.unique_evaluators) {
         const evalId = evaluator.evaluator_id
+        core.info(`evaluator: ${JSON.stringify(evaluator)}`)
         const evalColumnId = evalColumnIdMapper[evalId]
+        core.info(`evalColumnId: ${JSON.stringify(evalColumnId)}`)
 
         if (!evalColumnId) continue
 
         for (const cell of row.cells) {
+          core.info(`cell: ${JSON.stringify(cell)}`)
           if (cell.column_id === evalColumnId) {
+            core.info(`matched:`)
             const extractedValue = this.metricsProcessor.extractEvalValue(
               cell,
               evalId
             )
+            core.info(`extractedValue: ${JSON.stringify(extractedValue)}`)
             mapper = { ...mapper, ...extractedValue }
             break
           }

@@ -39452,17 +39452,25 @@ class OrqExperimentAction {
     }
     extractEvalValues(experiment, run, manifestRows) {
         const evalValues = [];
+        coreExports.info('extractevalvalues context');
         const evalColumnIdMapper = this.evaluatorColumnIdMapper(Object.keys(this.metricsProcessor.normalizeMetrics(run.metrics)), run);
+        coreExports.info(`evalColumnIdMapper: ${JSON.stringify(evalColumnIdMapper)}`);
         for (const row of manifestRows.items) {
             let mapper = {};
+            coreExports.info(`row: ${JSON.stringify(row)}`);
             for (const evaluator of experiment.unique_evaluators) {
                 const evalId = evaluator.evaluator_id;
+                coreExports.info(`evaluator: ${JSON.stringify(evaluator)}`);
                 const evalColumnId = evalColumnIdMapper[evalId];
+                coreExports.info(`evalColumnId: ${JSON.stringify(evalColumnId)}`);
                 if (!evalColumnId)
                     continue;
                 for (const cell of row.cells) {
+                    coreExports.info(`cell: ${JSON.stringify(cell)}`);
                     if (cell.column_id === evalColumnId) {
+                        coreExports.info(`matched:`);
                         const extractedValue = this.metricsProcessor.extractEvalValue(cell, evalId);
+                        coreExports.info(`extractedValue: ${JSON.stringify(extractedValue)}`);
                         mapper = { ...mapper, ...extractedValue };
                         break;
                     }

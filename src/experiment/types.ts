@@ -102,7 +102,7 @@ export type ExperimentManifestRowCell = {
   updated?: string
 }
 
-type ExperimentManifestRow = {
+export type ExperimentManifestRow = {
   status: string
   sheet_id: string
   manifest_id: string

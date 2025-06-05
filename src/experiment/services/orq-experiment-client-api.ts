@@ -4,7 +4,8 @@ import type {
   DeploymentExperimentRunPayload,
   ExperimentManifest,
   PaginatedExperimentManifestRows,
-  Experiment
+  Experiment,
+  ExperimentManifestRow
 } from '../types.js'
 import { OrqExperimentError } from '../errors.js'
 import { CONSTANTS } from '../constants.js'
@@ -92,11 +93,13 @@ export class OrqExperimentClientApi {
   async getExperimentManifestRows(
     experimentId: string,
     experimentRunId: string
-  ): Promise<PaginatedExperimentManifestRows> {
-    return this.makeRequest<PaginatedExperimentManifestRows>(
+  ): Promise<ExperimentManifestRow[]> {
+    const result = await this.makeRequest<PaginatedExperimentManifestRows>(
       `/v2/spreadsheets/${experimentId}/rows?manifest_id=${experimentRunId}`,
       { method: 'GET' }
     )
+
+    return result.items
   }
 
   async getAllExperimentManifests(
@@ -143,14 +146,14 @@ export class OrqExperimentClientApi {
     )
     const currentRun =
       currentRunIndex !== -1 ? experimentManifests[currentRunIndex] : null
-    core.info(`current run: ${currentRun?._id}`)
-    core.info(JSON.stringify(currentRun))
+    // core.info(`current run: ${currentRun?._id}`)
+    // core.info(JSON.stringify(currentRun))
     const previousRun =
       currentRunIndex !== -1 && currentRunIndex + 1 < experimentManifests.length
         ? experimentManifests[currentRunIndex + 1]
         : null
-    core.info(`previous run: ${previousRun?._id}`)
-    core.info(JSON.stringify(previousRun))
+    // core.info(`previous run: ${previousRun?._id}`)
+    // core.info(JSON.stringify(previousRun))
 
     return [currentRun || null, previousRun || null]
   }

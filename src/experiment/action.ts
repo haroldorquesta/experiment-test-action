@@ -6,9 +6,9 @@ import type {
   DeploymentExperimentRunResponse,
   DeploymentExperimentRunPayload,
   ExperimentManifest,
-  PaginatedExperimentManifestRows,
   Experiment,
-  ExperimentEvalResults
+  ExperimentEvalResults,
+  ExperimentManifestRow
 } from './types.js'
 import { SheetRunStatus } from './enums.js'
 import { OrqExperimentClientApi } from './services/orq-experiment-client-api.js'
@@ -162,7 +162,7 @@ class OrqExperimentAction {
 
     core.info(JSON.stringify(experiment))
 
-    core.info('get current run maifest')
+    core.info('get current run')
 
     // Get results
     const currentRun = await this.apiClient.getExperimentManifest(
@@ -185,7 +185,7 @@ class OrqExperimentAction {
 
     // Try to get previous run for comparison
     let previousRun: ExperimentManifest | null = null
-    let previousManifestRows: PaginatedExperimentManifestRows | null = null
+    let previousManifestRows: ExperimentManifestRow[] | null = null
 
     try {
       core.info('get all runs')
@@ -214,7 +214,6 @@ class OrqExperimentAction {
 
         core.info('previous run')
         previousRun = potentialPreviousRun
-        core.info('previous manifest row')
         previousManifestRows = await this.apiClient.getExperimentManifestRows(
           experimentRun.experiment_id,
           previousRun._id
@@ -286,8 +285,8 @@ class OrqExperimentAction {
     experiment: Experiment,
     currentRun: ExperimentManifest,
     previousRun: ExperimentManifest,
-    currentManifestRows: PaginatedExperimentManifestRows,
-    previousManifestRows: PaginatedExperimentManifestRows
+    currentManifestRows: ExperimentManifestRow[],
+    previousManifestRows: ExperimentManifestRow[]
   ): string[][] {
     const evalTable: string[][] = []
     core.info('current evals')
@@ -439,7 +438,7 @@ class OrqExperimentAction {
   private extractEvalValues(
     experiment: Experiment,
     run: ExperimentManifest,
-    manifestRows: PaginatedExperimentManifestRows
+    manifestRows: ExperimentManifestRow[]
   ): ExperimentEvalResults[] {
     const evalValues: ExperimentEvalResults[] = []
     core.info('extractevalvalues context')
@@ -450,7 +449,7 @@ class OrqExperimentAction {
 
     core.info(`evalColumnIdMapper: ${JSON.stringify(evalColumnIdMapper)}`)
 
-    for (const row of manifestRows.items) {
+    for (const row of manifestRows) {
       let mapper: ExperimentEvalResults = {}
       core.info(`row: ${JSON.stringify(row)}`)
 

@@ -34859,7 +34859,8 @@ class OrqExperimentClientApi {
         return this.makeRequest(`/v2/spreadsheets/${experimentId}/manifests/${experimentRunId}`, { method: 'GET' });
     }
     async getExperimentManifestRows(experimentId, experimentRunId) {
-        return this.makeRequest(`/v2/spreadsheets/${experimentId}/rows?manifest_id=${experimentRunId}`, { method: 'GET' });
+        const result = await this.makeRequest(`/v2/spreadsheets/${experimentId}/rows?manifest_id=${experimentRunId}`, { method: 'GET' });
+        return result.items;
     }
     async getAllExperimentManifests(experimentId) {
         return this.makeRequest(`/v2/spreadsheets/${experimentId}/manifests`, {
@@ -34883,13 +34884,13 @@ class OrqExperimentClientApi {
         coreExports.info(`experiment averange Run metrics ${JSON.stringify(experimentManifests)}`);
         const currentRunIndex = experimentManifests.findIndex((manifest) => manifest._id === experimentRunId);
         const currentRun = currentRunIndex !== -1 ? experimentManifests[currentRunIndex] : null;
-        coreExports.info(`current run: ${currentRun?._id}`);
-        coreExports.info(JSON.stringify(currentRun));
+        // core.info(`current run: ${currentRun?._id}`)
+        // core.info(JSON.stringify(currentRun))
         const previousRun = currentRunIndex !== -1 && currentRunIndex + 1 < experimentManifests.length
             ? experimentManifests[currentRunIndex + 1]
             : null;
-        coreExports.info(`previous run: ${previousRun?._id}`);
-        coreExports.info(JSON.stringify(previousRun));
+        // core.info(`previous run: ${previousRun?._id}`)
+        // core.info(JSON.stringify(previousRun))
         return [currentRun || null, previousRun || null];
     }
 }
@@ -38851,14 +38852,16 @@ var githubExports = requireGithub();
 class GithubService {
     octokit;
     pullRequest;
+    payload;
     constructor(token) {
         this.octokit = githubExports.getOctokit(token);
-        const { issue, repo } = githubExports.context;
+        const { payload, issue, repo } = githubExports.context;
         this.pullRequest = {
             owner: repo.owner,
             repo: repo.repo,
             issue_number: issue.number
         };
+        this.payload = payload;
     }
     async findExistingComment(key) {
         const { owner, repo, issue_number } = this.pullRequest;
@@ -38916,23 +38919,28 @@ class GithubService {
         return pr.base.sha;
     }
     async getFilesChanged(path) {
-        const { owner, repo, issue_number } = this.pullRequest;
-        const { data: files } = await this.octokit.rest.pulls.listFiles({
+        const { owner, repo } = this.pullRequest;
+        const base = this.payload.pull_request?.base.sha;
+        const head = this.payload.pull_request?.head.sha;
+        const response = await this.octokit.rest.repos.compareCommits({
+            base,
+            head,
             owner,
-            repo,
-            pull_number: issue_number,
-            per_page: 100
+            repo
         });
+        const files = response.data.files ?? [];
         return files
-            .filter((file) => this.isOrqExperimentConfigFile(file.filename, path))
+            .filter((file) => this.isOrqExperimentConfigFile(file.filename, file.status, path))
             .map((file) => file.filename);
     }
-    isOrqExperimentConfigFile(filename, basePath) {
+    isOrqExperimentConfigFile(filename, basePath, status) {
         coreExports.info(`filename: ${filename}`);
         coreExports.info(`basePath: ${basePath}`);
         const isInPath = filename.startsWith(basePath.endsWith('/') ? basePath : `${basePath}/`);
         const isYamlFile = filename.endsWith('.yaml') || filename.endsWith('.yml');
-        return isInPath && isYamlFile;
+        const isModified = status === 'modified';
+        const isAdded = status === 'added';
+        return isInPath && isYamlFile && (isModified || isAdded);
     }
     async parseYamlFile(content) {
         const decodedContent = decodeBase64String(content);
@@ -39281,7 +39289,7 @@ class OrqExperimentAction {
         // Get experiment details
         const experiment = await this.apiClient.getExperiment(experimentRun.experiment_id);
         coreExports.info(JSON.stringify(experiment));
-        coreExports.info('get current run maifest');
+        coreExports.info('get current run');
         // Get results
         const currentRun = await this.apiClient.getExperimentManifest(experimentRun.experiment_id, experimentRun.experiment_run_id);
         coreExports.info(JSON.stringify(currentRun));
@@ -39308,7 +39316,6 @@ class OrqExperimentAction {
                 }
                 coreExports.info('previous run');
                 previousRun = potentialPreviousRun;
-                coreExports.info('previous manifest row');
                 previousManifestRows = await this.apiClient.getExperimentManifestRows(experimentRun.experiment_id, previousRun._id);
             }
         }
@@ -39456,7 +39463,7 @@ class OrqExperimentAction {
         coreExports.info('extractevalvalues context');
         const evalColumnIdMapper = this.evaluatorColumnIdMapper(Object.keys(this.metricsProcessor.normalizeMetrics(run.metrics)), run);
         coreExports.info(`evalColumnIdMapper: ${JSON.stringify(evalColumnIdMapper)}`);
-        for (const row of manifestRows.items) {
+        for (const row of manifestRows) {
             let mapper = {};
             coreExports.info(`row: ${JSON.stringify(row)}`);
             for (const evaluator of experiment.unique_evaluators) {

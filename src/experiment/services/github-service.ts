@@ -8,20 +8,24 @@ import type {
 } from '../types.js'
 import { decodeBase64String } from '../utils.js'
 import yaml from 'yaml'
+import { WebhookPayload } from '@actions/github/lib/interfaces.js'
 
 export class GithubService {
   private octokit: GithubOctokit
   private pullRequest: GithubPullRequest
+  private payload: WebhookPayload
 
   constructor(token: string) {
     this.octokit = github.getOctokit(token)
-    const { issue, repo } = github.context
+    const { payload, issue, repo } = github.context
 
     this.pullRequest = {
       owner: repo.owner,
       repo: repo.repo,
       issue_number: issue.number
     }
+
+    this.payload = payload
   }
 
   async findExistingComment(key: string): Promise<number | null> {
@@ -103,23 +107,31 @@ export class GithubService {
   }
 
   async getFilesChanged(path: string): Promise<string[]> {
-    const { owner, repo, issue_number } = this.pullRequest
+    const { owner, repo } = this.pullRequest
 
-    const { data: files } = await this.octokit.rest.pulls.listFiles({
+    const base = this.payload.pull_request?.base.sha
+    const head = this.payload.pull_request?.head.sha
+
+    const response = await this.octokit.rest.repos.compareCommits({
+      base,
+      head,
       owner,
-      repo,
-      pull_number: issue_number,
-      per_page: 100
+      repo
     })
 
+    const files = response.data.files ?? []
+
     return files
-      .filter((file) => this.isOrqExperimentConfigFile(file.filename, path))
+      .filter((file) =>
+        this.isOrqExperimentConfigFile(file.filename, file.status, path)
+      )
       .map((file) => file.filename)
   }
 
   private isOrqExperimentConfigFile(
     filename: string,
-    basePath: string
+    basePath: string,
+    status: string
   ): boolean {
     core.info(`filename: ${filename}`)
     core.info(`basePath: ${basePath}`)
@@ -127,7 +139,9 @@ export class GithubService {
       basePath.endsWith('/') ? basePath : `${basePath}/`
     )
     const isYamlFile = filename.endsWith('.yaml') || filename.endsWith('.yml')
-    return isInPath && isYamlFile
+    const isModified = status === 'modified'
+    const isAdded = status === 'added'
+    return isInPath && isYamlFile && (isModified || isAdded)
   }
 
   async parseYamlFile(

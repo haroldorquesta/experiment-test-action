@@ -39071,6 +39071,7 @@ class OrqExperimentAction {
                 if (cell.column_id === evalColumnId) {
                     coreExports.info('Matched');
                     mapper = { ...mapper, ...this.extractEvalValue(cell, evaluatorId) };
+                    break;
                 }
             }
             evalValues.push(mapper);
@@ -39084,6 +39085,7 @@ class OrqExperimentAction {
         const currentRunMetrics = this.normalizeMetrics(currentRun.metrics);
         const previousRunMetrics = this.normalizeMetrics(previousRun.metrics);
         const evalColumnIdMapper = this.evaluatorColumnIdMapper(Object.keys(currentRunMetrics), currentRun);
+        coreExports.info(`evalColumnIdMapper ${JSON.stringify(evalColumnIdMapper)}`);
         coreExports.info(`unique evals ${JSON.stringify(uniqueEvals)}`);
         coreExports.info(`currentRunMetrics ${JSON.stringify(currentRunMetrics)}`);
         coreExports.info(`previousRunMetrics ${JSON.stringify(previousRunMetrics)}`);

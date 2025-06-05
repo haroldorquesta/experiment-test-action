@@ -377,6 +377,7 @@ class OrqExperimentAction {
         if (cell.column_id === evalColumnId) {
           core.info('Matched')
           mapper = { ...mapper, ...this.extractEvalValue(cell, evaluatorId) }
+          break
         }
       }
       evalValues.push(mapper)
@@ -405,6 +406,7 @@ class OrqExperimentAction {
       currentRun
     )
 
+    core.info(`evalColumnIdMapper ${JSON.stringify(evalColumnIdMapper)}`)
     core.info(`unique evals ${JSON.stringify(uniqueEvals)}`)
     core.info(`currentRunMetrics ${JSON.stringify(currentRunMetrics)}`)
     core.info(`previousRunMetrics ${JSON.stringify(previousRunMetrics)}`)

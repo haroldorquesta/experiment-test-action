@@ -39101,6 +39101,8 @@ class OrqExperimentAction {
         const evals = [];
         coreExports.info('generate regressions currentRun');
         coreExports.info(JSON.stringify(currentRun));
+        coreExports.info('generate regressions previousRun');
+        coreExports.info(JSON.stringify(previousRun));
         coreExports.info('generate regressions currentManifestRows');
         coreExports.info(JSON.stringify(currentManifestRows));
         coreExports.info('generate regressions previousManifestRows');

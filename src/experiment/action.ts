@@ -418,6 +418,9 @@ class OrqExperimentAction {
     core.info('generate regressions currentRun')
     core.info(JSON.stringify(currentRun))
 
+    core.info('generate regressions previousRun')
+    core.info(JSON.stringify(previousRun))
+
     core.info('generate regressions currentManifestRows')
     core.info(JSON.stringify(currentManifestRows))
 

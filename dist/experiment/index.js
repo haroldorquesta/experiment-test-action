@@ -39214,6 +39214,7 @@ class OrqExperimentAction {
             }
             const baseSha = await this.githubService.getPullRequestBase();
             const filesChanged = await this.githubService.getFilesChanged(this.path);
+            coreExports.info(`Files changed: ${JSON.stringify(filesChanged)}`);
             coreExports.info(`Found ${filesChanged.length} files changed`);
             // Process all files in parallel
             await Promise.all(filesChanged.map((filename) => this.processFile(filename, baseSha)));

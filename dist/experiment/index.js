@@ -39347,10 +39347,10 @@ class OrqExperimentAction {
         coreExports.info(JSON.stringify(previousEvals));
         for (const evaluator of experiment.unique_evaluators) {
             const evalId = evaluator.evaluator_id;
-            const evalType = evaluator.evaluator_type;
-            coreExports.info(`evalType: ${evalType}`);
+            const evalKey = evaluator.evaluator_key;
+            coreExports.info(`evalKey: ${evalKey}`);
             // Get all metric keys for this evaluator based on type
-            const metricKeys = this.getMetricKeysForEvaluator(evalId, evalType);
+            const metricKeys = this.getMetricKeysForEvaluator(evalId, evalKey);
             coreExports.info(`metricKeys: ${metricKeys}`);
             for (const metricKey of metricKeys) {
                 let improvements = 0;
@@ -39409,8 +39409,8 @@ class OrqExperimentAction {
         }
         return evalTable;
     }
-    getMetricKeysForEvaluator(evalId, evalType) {
-        switch (evalType) {
+    getMetricKeysForEvaluator(evalId, evalKey) {
+        switch (evalKey) {
             case 'bert_score':
                 return [
                     `${evalId}_bert_score_f1`,

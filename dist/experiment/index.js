@@ -39295,23 +39295,29 @@ class OrqExperimentAction {
         let previousRun = null;
         let previousManifestRows = null;
         try {
+            coreExports.info('get all runs');
             const allRuns = await this.apiClient.getAllExperimentManifests(experimentRun.experiment_id);
+            coreExports.info('currentRunIndex');
             // Find the current run index first
             // Results are already sorted in descending date order
             const currentRunIndex = allRuns.findIndex((run) => run._id === experimentRun.experiment_run_id);
+            coreExports.info(currentRunIndex.toString());
             // Previous run is at index + 1, check bounds first
             if (currentRunIndex !== -1 && currentRunIndex + 1 < allRuns.length) {
                 const potentialPreviousRun = allRuns[currentRunIndex + 1];
                 if (potentialPreviousRun.status !== SheetRunStatus.COMPLETED) {
                     throw new OrqExperimentError(`Previous experiment run has status '${potentialPreviousRun.status}', expected 'COMPLETED'`);
                 }
+                coreExports.info('previous run');
                 previousRun = potentialPreviousRun;
+                coreExports.info('previous manifest row');
                 previousManifestRows = await this.apiClient.getExperimentManifestRows(experimentRun.experiment_id, previousRun._id);
             }
         }
         catch (error) {
             throw new OrqExperimentError(`Failed to get previous run for comparison: ${error}`);
         }
+        coreExports.info('running eval table');
         // Generate comparison tables
         const evalTable = previousRun && previousManifestRows
             ? this.generateEvalComparisonTable(experiment, currentRun, previousRun, currentManifestRows, previousManifestRows)

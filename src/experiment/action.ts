@@ -182,15 +182,19 @@ class OrqExperimentAction {
     let previousManifestRows: PaginatedExperimentManifestRows | null = null
 
     try {
+      core.info('get all runs')
       const allRuns = await this.apiClient.getAllExperimentManifests(
         experimentRun.experiment_id
       )
 
+      core.info('currentRunIndex')
       // Find the current run index first
       // Results are already sorted in descending date order
       const currentRunIndex = allRuns.findIndex(
         (run) => run._id === experimentRun.experiment_run_id
       )
+
+      core.info(currentRunIndex.toString())
 
       // Previous run is at index + 1, check bounds first
       if (currentRunIndex !== -1 && currentRunIndex + 1 < allRuns.length) {
@@ -202,7 +206,9 @@ class OrqExperimentAction {
           )
         }
 
+        core.info('previous run')
         previousRun = potentialPreviousRun
+        core.info('previous manifest row')
         previousManifestRows = await this.apiClient.getExperimentManifestRows(
           experimentRun.experiment_id,
           previousRun._id
@@ -213,6 +219,8 @@ class OrqExperimentAction {
         `Failed to get previous run for comparison: ${error}`
       )
     }
+
+    core.info('running eval table')
 
     // Generate comparison tables
     const evalTable =

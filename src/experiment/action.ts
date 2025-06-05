@@ -346,7 +346,7 @@ class OrqExperimentAction {
 
         // Format average with difference in parentheses
         const diffSign = averageDiff > 0 ? '+' : ''
-        const averageDisplay = `${formatNumber(currentAverage)} ${averageDiff !== 0 ? `(${diffSign}${formatNumber(averageDiff)}` : ''}`
+        const averageDisplay = `${formatNumber(currentAverage)} ${averageDiff !== 0 ? `(${diffSign}${formatNumber(averageDiff)})` : ''}`
 
         // Generate display name for the metric
         const displayName = this.getMetricDisplayName(

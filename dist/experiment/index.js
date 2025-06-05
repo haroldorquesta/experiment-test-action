@@ -39496,7 +39496,7 @@ class OrqExperimentAction {
                     if ('config' in column &&
                         'evaluator_id' in column.config &&
                         normalizeEvalKey === column.config['evaluator_id']) {
-                        mapper[evalKey] = column.id;
+                        mapper[normalizeEvalKey] = column.id;
                     }
                 }
             }

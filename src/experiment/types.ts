@@ -42,8 +42,8 @@ export type DeploymentExperimentRunPayload = {
   deployment_key: string
   dataset_id: string
   experiment_key: string
-  context: Record<string, unknown> | undefined
-  evaluators: string[] | undefined
+  context?: Record<string, unknown> | undefined
+  evaluators?: string[] | undefined
 }
 
 export type DeploymentExperimentRunResponse = {
@@ -52,7 +52,7 @@ export type DeploymentExperimentRunResponse = {
   experiment_run_id: string
 }
 
-type ExperimentManifestColumn = {
+export type ExperimentManifestColumn = {
   display_name: string
   key: string
   column_type: string
@@ -60,6 +60,7 @@ type ExperimentManifestColumn = {
   position: number
   active: boolean
   config: Record<string, unknown>
+  evaluator_id: string
 }
 
 export type ExperimentManifest = {
@@ -83,6 +84,10 @@ export type ExperimentManifest = {
   started_at: string
   completed_at: string
   metrics: Record<string, number>
+  github_run_info?: {
+    repo: string
+    commit_sha: string
+  }
 }
 
 export type ExperimentManifestRowCell = {
@@ -130,14 +135,19 @@ export type ExperimentEval = {
   evaluator_name: string
 }
 
+export type ExperimentEvalResults = Record<string, number>
+
 export type Experiment = {
   _id: string
+  id: string
   type: string
   dataset_id: string
+  dataset_name: string
   dataset_version_id: string
   workspace_id: string
   project_id: string
   display_name: string
+  name: string
   state: {
     selected_manifest_id: string
     row_height_level: number

@@ -4,7 +4,7 @@ export const CONSTANTS = {
   BERT_SCORE_METRICS: ['f1', 'precision', 'recall'] as const,
   POLL_INTERVAL_SECONDS: 3,
   API_BASE_URL: 'https://my.staging.orq.ai',
-  ICONS: {
+  UNICODE: {
     NEUTRAL: '🟡',
     SUCCESS: '🟢',
     ERROR: '🔴'

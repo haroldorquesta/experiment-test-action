@@ -5,14 +5,15 @@ import type {
   ExperimentManifest,
   PaginatedExperimentManifestRows,
   Experiment
-} from './types.js'
-import { OrqExperimentError } from './errors.js'
+} from '../types.js'
+import { OrqExperimentError } from '../errors.js'
+import { CONSTANTS } from '../constants.js'
 
-export class OrqApiClient {
+export class OrqExperimentClientApi {
   private apiKey: string
   private baseUrl: string
 
-  constructor(apiKey: string, baseUrl: string) {
+  constructor(apiKey: string, baseUrl = CONSTANTS.API_BASE_URL) {
     this.apiKey = apiKey
     this.baseUrl = baseUrl
   }
@@ -43,15 +44,7 @@ export class OrqApiClient {
 
     if (!response.ok) {
       throw new OrqExperimentError(
-        `API request failed: ${response.statusText}`,
-        {
-          phase: 'api_call',
-          details: {
-            status: response.status,
-            statusText: response.statusText,
-            endpoint
-          }
-        }
+        `API request failed: ${response.statusText} (${response.status})`
       )
     }
 
@@ -106,16 +99,35 @@ export class OrqApiClient {
     )
   }
 
-  async getExperimentRunAverageMetrics(
-    experimentId: string,
-    experimentRunId: string
-  ): Promise<[ExperimentManifest | null, ExperimentManifest | null]> {
-    const experimentManifests = await this.makeRequest<ExperimentManifest[]>(
+  async getAllExperimentManifests(
+    experimentId: string
+  ): Promise<ExperimentManifest[]> {
+    return this.makeRequest<ExperimentManifest[]>(
       `/v2/spreadsheets/${experimentId}/manifests`,
       {
         method: 'GET'
       }
     )
+  }
+
+  async createExperimentRun(
+    payload: DeploymentExperimentRunPayload
+  ): Promise<DeploymentExperimentRunResponse> {
+    return this.makeRequest<DeploymentExperimentRunResponse>(
+      '/v1/deployments/experiment/run',
+      {
+        method: 'POST',
+        body: payload
+      }
+    )
+  }
+
+  async getExperimentRunAverageMetrics(
+    experimentId: string,
+    experimentRunId: string
+  ): Promise<[ExperimentManifest | null, ExperimentManifest | null]> {
+    const experimentManifests =
+      await this.getAllExperimentManifests(experimentId)
     core.info(
       `experiment averange Run metrics ${JSON.stringify(experimentManifests)}`
     )

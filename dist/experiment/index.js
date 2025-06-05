@@ -39074,6 +39074,7 @@ class OrqExperimentAction {
     collectEvalValues(manifestRows, evalColumnId, evaluatorId) {
         const evalValues = [];
         for (const row of manifestRows.items) {
+            coreExports.info(`Row: ${JSON.stringify(row)}`);
             let mapper = {};
             for (const cell of row.cells) {
                 coreExports.info(`Cell: ${JSON.stringify(cell)}, evalColumnId: ${evalColumnId}, evaluatorId: ${evaluatorId}`);
@@ -39082,6 +39083,7 @@ class OrqExperimentAction {
                     const extractedValue = this.extractEvalValue(cell, evaluatorId);
                     coreExports.info(`extractedValue: ${JSON.stringify(extractedValue)}`);
                     mapper = { ...mapper, ...extractedValue };
+                    coreExports.info(`mapper: ${JSON.stringify(mapper)}`);
                     break;
                 }
             }

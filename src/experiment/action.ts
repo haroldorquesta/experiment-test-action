@@ -382,6 +382,7 @@ class OrqExperimentAction {
     const evalValues: Record<string, number>[] = []
 
     for (const row of manifestRows.items) {
+      core.info(`Row: ${JSON.stringify(row)}`)
       let mapper: Record<string, number> = {}
       for (const cell of row.cells) {
         core.info(
@@ -392,6 +393,7 @@ class OrqExperimentAction {
           const extractedValue = this.extractEvalValue(cell, evaluatorId)
           core.info(`extractedValue: ${JSON.stringify(extractedValue)}`)
           mapper = { ...mapper, ...extractedValue }
+          core.info(`mapper: ${JSON.stringify(mapper)}`)
           break
         }
       }

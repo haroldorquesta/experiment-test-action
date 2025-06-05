@@ -1,3 +1,6 @@
+import * as core from '@actions/core'
+import { OrqExperimentError } from './errors.js'
+
 export function generateMarkdownTable(
   headers: string[],
   rows: string[][]
@@ -65,4 +68,18 @@ export function formatNumber(value: number): string {
 
   // For very small numbers, use 2 significant digits
   return parseFloat(value.toPrecision(2)).toString()
+}
+
+export function validateActionInputs(): void {
+  const apiKey = core.getInput('api_key')
+
+  if (!apiKey) {
+    throw new OrqExperimentError('Input `api_key` not set!')
+  }
+
+  const path = core.getInput('path')
+
+  if (!path) {
+    throw new OrqExperimentError('Input `path` for yaml configs was not set!')
+  }
 }

@@ -30,19 +30,16 @@ class OrqExperimentAction {
     this.githubService = new GithubService(githubToken)
     this.metricsProcessor = new MetricsProcessor()
     this.commentFormatter = new CommentFormatter()
+
+    const apiKey = core.getInput('api_key')
+    this.apiClient = new OrqExperimentClientApi(apiKey)
   }
 
   async run(): Promise<void> {
     try {
-      this.validateInput()
-
       if (!this.githubService.getPullRequest()) {
         throw new OrqExperimentError('Pull request not found!')
       }
-
-      const apiKey = core.getInput('api_key')
-
-      this.apiClient = new OrqExperimentClientApi(apiKey)
 
       const baseSha = await this.githubService.getPullRequestBase()
       const filesChanged = await this.githubService.getFilesChanged(this.path)
@@ -57,22 +54,6 @@ class OrqExperimentAction {
       core.error(`Failed to run Orq experiment: ${error}`)
       throw error
     }
-  }
-
-  private validateInput(): void {
-    const apiKey = core.getInput('api_key')
-
-    if (!apiKey) {
-      throw new OrqExperimentError('Input `api_key` not set!')
-    }
-
-    const path = core.getInput('path')
-
-    if (!path) {
-      throw new OrqExperimentError('Input `path` for yaml configs was not set!')
-    }
-
-    this.path = path
   }
 
   private async processFile(filename: string, baseSha: string): Promise<void> {
@@ -238,14 +219,7 @@ class OrqExperimentAction {
       throw new OrqExperimentError('API client not initialized')
     }
 
-    const experimentRun = await this.apiClient.createExperimentRun({
-      type: 'experiment',
-      deployment_key: payload.deployment_key,
-      dataset_id: payload.dataset_id,
-      experiment_key: payload.experiment_key,
-      ...(payload.context && { context: payload.context }),
-      ...(payload.evaluators && { evaluators: payload.evaluators })
-    })
+    const experimentRun = await this.apiClient.createExperimentRun(payload)
 
     await this.waitForCompletion(experimentRun)
     return experimentRun
@@ -353,7 +327,11 @@ class OrqExperimentAction {
         const averageDisplay = `${currentAverage.toFixed(2)} (${diffSign}${averageDiff.toFixed(2)})`
 
         // Generate display name for the metric
-        const displayName = this.getMetricDisplayName(evalId, metricKey, evaluator.evaluator_name)
+        const displayName = this.getMetricDisplayName(
+          evalId,
+          metricKey,
+          evaluator.evaluator_name
+        )
 
         evalTable.push([
           displayName, // Score (eval name with metric)
@@ -367,7 +345,10 @@ class OrqExperimentAction {
     return evalTable
   }
 
-  private getMetricKeysForEvaluator(evalId: string, evalType: string): string[] {
+  private getMetricKeysForEvaluator(
+    evalId: string,
+    evalType: string
+  ): string[] {
     switch (evalType) {
       case 'bert_score':
         return [
@@ -392,7 +373,11 @@ class OrqExperimentAction {
     }
   }
 
-  private getMetricDisplayName(evalId: string, metricKey: string, evaluatorName?: string): string {
+  private getMetricDisplayName(
+    evalId: string,
+    metricKey: string,
+    evaluatorName?: string
+  ): string {
     const baseName = evaluatorName || evalId
 
     if (metricKey === evalId) {

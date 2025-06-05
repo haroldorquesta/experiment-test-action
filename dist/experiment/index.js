@@ -34711,6 +34711,13 @@ var YAML = /*#__PURE__*/Object.freeze({
 	visitAsync: visitAsync
 });
 
+class OrqExperimentError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'OrqExperimentError';
+    }
+}
+
 function generateMarkdownTable(headers, rows) {
     if (!Array.isArray(headers) || headers.length === 0) {
         throw new Error('Headers must be a non-empty array');
@@ -34760,6 +34767,16 @@ function formatNumber(value) {
     // For very small numbers, use 2 significant digits
     return parseFloat(value.toPrecision(2)).toString();
 }
+function validateActionInputs() {
+    const apiKey = coreExports.getInput('api_key');
+    if (!apiKey) {
+        throw new OrqExperimentError('Input `api_key` not set!');
+    }
+    const path = coreExports.getInput('path');
+    if (!path) {
+        throw new OrqExperimentError('Input `path` for yaml configs was not set!');
+    }
+}
 
 /**
  * Represents the status of an experiment sheet run
@@ -34779,13 +34796,6 @@ var SheetRunStatus;
     /** Run failed during execution */
     SheetRunStatus["FAILED"] = "failed";
 })(SheetRunStatus || (SheetRunStatus = {}));
-
-class OrqExperimentError extends Error {
-    constructor(message) {
-        super(message);
-        this.name = 'OrqExperimentError';
-    }
-}
 
 const CONSTANTS = {
     PERFECT_SCORE: 100,
@@ -34857,9 +34867,15 @@ class OrqExperimentClientApi {
         });
     }
     async createExperimentRun(payload) {
-        return this.makeRequest('/v1/deployments/experiment/run', {
+        return this.makeRequest(`/v1/deployments/${payload.deployment_key}/experiment`, {
             method: 'POST',
-            body: payload
+            body: {
+                type: 'deployment_experiment',
+                experiment_key: payload.experiment_key,
+                dataset_id: payload.dataset_id,
+                ...(payload.context ? { context: payload.context } : {}),
+                ...(payload.evaluators ? { evaluators: payload.evaluators } : {})
+            }
         });
     }
     async getExperimentRunAverageMetrics(experimentId, experimentRunId) {
@@ -39188,15 +39204,14 @@ class OrqExperimentAction {
         this.githubService = new GithubService(githubToken);
         this.metricsProcessor = new MetricsProcessor();
         this.commentFormatter = new CommentFormatter();
+        const apiKey = coreExports.getInput('api_key');
+        this.apiClient = new OrqExperimentClientApi(apiKey);
     }
     async run() {
         try {
-            this.validateInput();
             if (!this.githubService.getPullRequest()) {
                 throw new OrqExperimentError('Pull request not found!');
             }
-            const apiKey = coreExports.getInput('api_key');
-            this.apiClient = new OrqExperimentClientApi(apiKey);
             const baseSha = await this.githubService.getPullRequestBase();
             const filesChanged = await this.githubService.getFilesChanged(this.path);
             coreExports.info(`Found ${filesChanged.length} files changed`);
@@ -39207,17 +39222,6 @@ class OrqExperimentAction {
             coreExports.error(`Failed to run Orq experiment: ${error}`);
             throw error;
         }
-    }
-    validateInput() {
-        const apiKey = coreExports.getInput('api_key');
-        if (!apiKey) {
-            throw new OrqExperimentError('Input `api_key` not set!');
-        }
-        const path = coreExports.getInput('path');
-        if (!path) {
-            throw new OrqExperimentError('Input `path` for yaml configs was not set!');
-        }
-        this.path = path;
     }
     async processFile(filename, baseSha) {
         try {
@@ -39306,14 +39310,7 @@ class OrqExperimentAction {
         if (!this.apiClient) {
             throw new OrqExperimentError('API client not initialized');
         }
-        const experimentRun = await this.apiClient.createExperimentRun({
-            type: 'experiment',
-            deployment_key: payload.deployment_key,
-            dataset_id: payload.dataset_id,
-            experiment_key: payload.experiment_key,
-            ...(payload.context && { context: payload.context }),
-            ...(payload.evaluators && { evaluators: payload.evaluators })
-        });
+        const experimentRun = await this.apiClient.createExperimentRun(payload);
         await this.waitForCompletion(experimentRun);
         return experimentRun;
     }
@@ -39472,6 +39469,7 @@ class OrqExperimentAction {
 
 async function run() {
     try {
+        validateActionInputs();
         const action = new OrqExperimentAction();
         await action.run();
     }

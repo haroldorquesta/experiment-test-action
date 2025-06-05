@@ -114,10 +114,16 @@ export class OrqExperimentClientApi {
     payload: DeploymentExperimentRunPayload
   ): Promise<DeploymentExperimentRunResponse> {
     return this.makeRequest<DeploymentExperimentRunResponse>(
-      '/v1/deployments/experiment/run',
+      `/v1/deployments/${payload.deployment_key}/experiment`,
       {
         method: 'POST',
-        body: payload
+        body: {
+          type: 'deployment_experiment',
+          experiment_key: payload.experiment_key,
+          dataset_id: payload.dataset_id,
+          ...(payload.context ? { context: payload.context } : {}),
+          ...(payload.evaluators ? { evaluators: payload.evaluators } : {})
+        }
       }
     )
   }

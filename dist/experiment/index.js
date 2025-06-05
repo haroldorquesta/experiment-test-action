@@ -38974,6 +38974,7 @@ function isRougeScoreValue(value) {
 class MetricsProcessor {
     normalizeMetrics(metrics) {
         const normalizeMetrics = {};
+        coreExports.info(`normalizedMetrics start: ${JSON.stringify(metrics)}`);
         for (const metricKey of Object.keys(metrics)) {
             const newMetricKey = metricKey.split('_').slice(1).join('_');
             normalizeMetrics[newMetricKey] = metrics[metricKey];
@@ -39476,7 +39477,11 @@ class OrqExperimentAction {
     }
     evaluatorColumnIdMapper(evalKeys, run) {
         const mapper = {};
+        coreExports.info('evaluatorColumnIdMapper');
+        coreExports.info('run columns');
+        coreExports.info(JSON.stringify(run.columns));
         for (const evalKey of evalKeys) {
+            coreExports.info(`evalKey ${evalKey}`);
             const evalKeyList = evalKey.split('_');
             let normalizeEvalKey = '';
             if (evalKeyList.length === 1) {

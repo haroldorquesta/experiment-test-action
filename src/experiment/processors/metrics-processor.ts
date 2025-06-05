@@ -18,6 +18,8 @@ export class MetricsProcessor {
   ): Record<string, number> {
     const normalizeMetrics: Record<string, number> = {}
 
+    core.info(`normalizedMetrics start: ${JSON.stringify(metrics)}`)
+
     for (const metricKey of Object.keys(metrics)) {
       const newMetricKey = metricKey.split('_').slice(1).join('_')
 

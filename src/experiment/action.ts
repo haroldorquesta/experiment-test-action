@@ -479,7 +479,13 @@ class OrqExperimentAction {
   ): Record<string, string> {
     const mapper: Record<string, string> = {}
 
+    core.info('evaluatorColumnIdMapper')
+
+    core.info('run columns')
+    core.info(JSON.stringify(run.columns))
+
     for (const evalKey of evalKeys) {
+      core.info(`evalKey ${evalKey}`)
       const evalKeyList = evalKey.split('_')
 
       let normalizeEvalKey = ''

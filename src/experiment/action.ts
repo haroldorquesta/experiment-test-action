@@ -474,14 +474,32 @@ class OrqExperimentAction {
   }
 
   private evaluatorColumnIdMapper(
-    columnIds: string[],
+    evalKeys: string[],
     run: ExperimentManifest
   ): Record<string, string> {
     const mapper: Record<string, string> = {}
 
-    for (const column of run.columns) {
-      if (columnIds.includes(column.id)) {
-        mapper[column.evaluator_id] = column.id
+    for (const evalKey of evalKeys) {
+      const evalKeyList = evalKey.split('_')
+
+      let normalizeEvalKey = ''
+
+      if (evalKeyList.length === 1) {
+        normalizeEvalKey = evalKeyList[0]
+      } else {
+        normalizeEvalKey = evalKeyList.slice(1).join('_')
+      }
+
+      for (const column of run.columns) {
+        if (
+          'config' in column &&
+          'evaluator_id' in column.config &&
+          normalizeEvalKey === column.config['evaluator_id']
+        ) {
+          mapper[evalKey] = column.id
+        } else if (column.key === normalizeEvalKey) {
+          mapper[evalKey] = column.id
+        }
       }
     }
 

@@ -84,10 +84,6 @@ export type ExperimentManifest = {
   started_at: string
   completed_at: string
   metrics: Record<string, number>
-  github_run_info?: {
-    repo: string
-    commit_sha: string
-  }
 }
 
 export type ExperimentManifestRowCell = {

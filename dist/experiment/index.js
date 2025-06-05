@@ -38973,19 +38973,13 @@ function isRougeScoreValue(value) {
 
 class MetricsProcessor {
     normalizeMetrics(metrics) {
-        const normalized = {};
-        for (const [key, value] of Object.entries(metrics)) {
-            if (typeof value === 'number') {
-                normalized[key] = value;
-            }
-            else if (typeof value === 'object' && value !== null) {
-                const keys = Object.keys(value);
-                if (keys.length > 0) {
-                    normalized[key] = value[keys[0]];
-                }
-            }
+        const normalizeMetrics = {};
+        for (const metricKey of Object.keys(metrics)) {
+            const newMetricKey = metricKey.split('_').slice(1).join('_');
+            normalizeMetrics[newMetricKey] = metrics[metricKey];
         }
-        return normalized;
+        coreExports.info(`normalizedMetrics: ${JSON.stringify(normalizeMetrics)}`);
+        return normalizeMetrics;
     }
     extractEvalValue(cell, evaluatorId) {
         const mapper = {};
@@ -39480,11 +39474,26 @@ class OrqExperimentAction {
         }
         return evalValues;
     }
-    evaluatorColumnIdMapper(columnIds, run) {
+    evaluatorColumnIdMapper(evalKeys, run) {
         const mapper = {};
-        for (const column of run.columns) {
-            if (columnIds.includes(column.id)) {
-                mapper[column.evaluator_id] = column.id;
+        for (const evalKey of evalKeys) {
+            const evalKeyList = evalKey.split('_');
+            let normalizeEvalKey = '';
+            if (evalKeyList.length === 1) {
+                normalizeEvalKey = evalKeyList[0];
+            }
+            else {
+                normalizeEvalKey = evalKeyList.slice(1).join('_');
+            }
+            for (const column of run.columns) {
+                if ('config' in column &&
+                    'evaluator_id' in column.config &&
+                    normalizeEvalKey === column.config['evaluator_id']) {
+                    mapper[evalKey] = column.id;
+                }
+                else if (column.key === normalizeEvalKey) {
+                    mapper[evalKey] = column.id;
+                }
             }
         }
         return mapper;

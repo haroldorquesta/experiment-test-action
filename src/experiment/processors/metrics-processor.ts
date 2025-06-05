@@ -1,3 +1,4 @@
+import * as core from '@actions/core'
 import type {
   ExperimentManifest,
   ExperimentManifestRowCell,
@@ -15,20 +16,17 @@ export class MetricsProcessor {
   normalizeMetrics(
     metrics: ExperimentManifest['metrics']
   ): Record<string, number> {
-    const normalized: Record<string, number> = {}
+    const normalizeMetrics: Record<string, number> = {}
 
-    for (const [key, value] of Object.entries(metrics)) {
-      if (typeof value === 'number') {
-        normalized[key] = value
-      } else if (typeof value === 'object' && value !== null) {
-        const keys = Object.keys(value)
-        if (keys.length > 0) {
-          normalized[key] = value[keys[0]] as number
-        }
-      }
+    for (const metricKey of Object.keys(metrics)) {
+      const newMetricKey = metricKey.split('_').slice(1).join('_')
+
+      normalizeMetrics[newMetricKey] = metrics[metricKey]
     }
 
-    return normalized
+    core.info(`normalizedMetrics: ${JSON.stringify(normalizeMetrics)}`)
+
+    return normalizeMetrics
   }
 
   extractEvalValue(

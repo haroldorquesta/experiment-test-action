@@ -38928,7 +38928,7 @@ class GithubService {
             .map((file) => file.filename);
     }
     isOrqExperimentConfigFile(filename, basePath) {
-        const isInPath = filename.startsWith(basePath);
+        const isInPath = filename.startsWith(basePath.endsWith('/') ? basePath : `${basePath}/`);
         const isYamlFile = filename.endsWith('.yaml') || filename.endsWith('.yml');
         return isInPath && isYamlFile;
     }
@@ -39109,7 +39109,7 @@ class CommentFormatter {
     generateCommentKey(filename) {
         return `<!-- orq-action-identifier:${filename} -->`;
     }
-    formatExperimentRunningComment(experimentKey, deploymentKey, filename) {
+    formatExperimentRunningComment(experimentKey, deploymentKey, filename, experimentId, experimentRunId) {
         const key = this.generateCommentKey(filename);
         return `${key}
 ## 🧪 Orq.ai Experiment Running
@@ -39120,6 +39120,7 @@ class CommentFormatter {
 🔄 Your experiment is currently running. Results will be posted here once complete.
 
 ---
+${experimentId && experimentRunId && `[View running experiment in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${experimentId}/run/${experimentRunId})`}
 `;
     }
     formatExperimentResultsComment(experiment, deploymentName, evalTable, filename, experimentRunId) {
@@ -39267,12 +39268,15 @@ class OrqExperimentAction {
             throw new OrqExperimentError('API client not initialized');
         }
         const { deployment_key, experiment_key } = payload;
-        // Post initial running comment
-        const runningComment = this.commentFormatter.formatExperimentRunningComment(experiment_key, deployment_key, filename);
+        // Initial running comment
+        let runningComment = this.commentFormatter.formatExperimentRunningComment(experiment_key, deployment_key, filename);
         const key = this.commentFormatter.generateCommentKey(filename);
         await this.githubService.upsertComment(key, runningComment);
         // Run the experiment
         const experimentRun = await this.orchestrateExperimentRun(payload);
+        // Post initial running comment with experiment link
+        runningComment = this.commentFormatter.formatExperimentRunningComment(experiment_key, deployment_key, filename, experimentRun.experiment_id, experimentRun.experiment_run_id);
+        await this.githubService.upsertComment(key, runningComment);
         // Get experiment details
         const experiment = await this.apiClient.getExperiment(experimentRun.experiment_id);
         // Get results

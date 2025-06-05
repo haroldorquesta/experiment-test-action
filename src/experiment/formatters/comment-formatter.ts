@@ -10,7 +10,9 @@ export class CommentFormatter {
   formatExperimentRunningComment(
     experimentKey: string,
     deploymentKey: string,
-    filename: string
+    filename: string,
+    experimentId?: string,
+    experimentRunId?: string
   ): string {
     const key = this.generateCommentKey(filename)
 
@@ -23,6 +25,7 @@ export class CommentFormatter {
 🔄 Your experiment is currently running. Results will be posted here once complete.
 
 ---
+${experimentId && experimentRunId && `[View running experiment in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${experimentId}/run/${experimentRunId})`}
 `
   }
 

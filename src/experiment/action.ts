@@ -126,8 +126,8 @@ class OrqExperimentAction {
 
     const { deployment_key, experiment_key } = payload
 
-    // Post initial running comment
-    const runningComment = this.commentFormatter.formatExperimentRunningComment(
+    // Initial running comment
+    let runningComment = this.commentFormatter.formatExperimentRunningComment(
       experiment_key,
       deployment_key,
       filename
@@ -137,6 +137,16 @@ class OrqExperimentAction {
 
     // Run the experiment
     const experimentRun = await this.orchestrateExperimentRun(payload)
+
+    // Post initial running comment with experiment link
+    runningComment = this.commentFormatter.formatExperimentRunningComment(
+      experiment_key,
+      deployment_key,
+      filename,
+      experimentRun.experiment_id,
+      experimentRun.experiment_run_id
+    )
+    await this.githubService.upsertComment(key, runningComment)
 
     // Get experiment details
     const experiment = await this.apiClient.getExperiment(

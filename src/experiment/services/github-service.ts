@@ -120,7 +120,9 @@ export class GithubService {
     filename: string,
     basePath: string
   ): boolean {
-    const isInPath = filename.startsWith(basePath)
+    const isInPath = filename.startsWith(
+      basePath.endsWith('/') ? basePath : `${basePath}/`
+    )
     const isYamlFile = filename.endsWith('.yaml') || filename.endsWith('.yml')
     return isInPath && isYamlFile
   }

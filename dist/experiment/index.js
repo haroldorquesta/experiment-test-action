@@ -38809,10 +38809,12 @@ class OrqApiClient {
         const currentRunIndex = experimentManifests.findIndex((manifest) => manifest._id === experimentRunId);
         const currentRun = currentRunIndex !== -1 ? experimentManifests[currentRunIndex] : null;
         coreExports.info(`current run: ${currentRun?._id}`);
+        coreExports.info(JSON.stringify(currentRun));
         const previousRun = currentRunIndex !== -1 && currentRunIndex + 1 < experimentManifests.length
             ? experimentManifests[currentRunIndex + 1]
             : null;
         coreExports.info(`previous run: ${previousRun?._id}`);
+        coreExports.info(JSON.stringify(previousRun));
         return [currentRun || null, previousRun || null];
     }
 }

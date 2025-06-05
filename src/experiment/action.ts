@@ -418,28 +418,40 @@ class OrqExperimentAction {
     const currentRunMetrics = this.normalizeMetrics(currentRun.metrics)
     const previousRunMetrics = this.normalizeMetrics(previousRun.metrics)
 
-    const evalColumnIdMapper = this.evaluatorColumnIdMapper(
+    const currentEvalColumnIdMapper = this.evaluatorColumnIdMapper(
       Object.keys(currentRunMetrics),
       currentRun
     )
+    const previousEvalColumnIdMapper = this.evaluatorColumnIdMapper(
+      Object.keys(previousRunMetrics),
+      currentRun
+    )
 
-    core.info(`evalColumnIdMapper ${JSON.stringify(evalColumnIdMapper)}`)
+    core.info(`evalColumnIdMapper ${JSON.stringify(currentEvalColumnIdMapper)}`)
+    core.info(
+      `previousColumnIdMapper ${JSON.stringify(previousEvalColumnIdMapper)}`
+    )
     core.info(`unique evals ${JSON.stringify(uniqueEvals)}`)
     core.info(`currentRunMetrics ${JSON.stringify(currentRunMetrics)}`)
     core.info(`previousRunMetrics ${JSON.stringify(previousRunMetrics)}`)
 
     for (const evaluator of uniqueEvals) {
       core.info(`evaluator ${JSON.stringify(evaluator)}`)
-      const evalColumnId = evalColumnIdMapper[evaluator.evaluator_id]
+      const currentEvalColumnId =
+        currentEvalColumnIdMapper[evaluator.evaluator_id]
+      const previousEvalColumnId =
+        previousEvalColumnIdMapper[evaluator.evaluator_id]
 
+      core.info('collect eval for current')
       const evalValues = this.collectEvalValues(
         currentManifestRows,
-        evalColumnId,
+        currentEvalColumnId,
         evaluator.evaluator_id
       )
+      core.info('collect eval for previous')
       const previousEvalValues = this.collectEvalValues(
         previousManifestRows,
-        evalColumnId,
+        previousEvalColumnId,
         evaluator.evaluator_id
       )
 

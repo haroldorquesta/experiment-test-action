@@ -39097,16 +39097,21 @@ class OrqExperimentAction {
         const evals = [];
         const currentRunMetrics = this.normalizeMetrics(currentRun.metrics);
         const previousRunMetrics = this.normalizeMetrics(previousRun.metrics);
-        const evalColumnIdMapper = this.evaluatorColumnIdMapper(Object.keys(currentRunMetrics), currentRun);
-        coreExports.info(`evalColumnIdMapper ${JSON.stringify(evalColumnIdMapper)}`);
+        const currentEvalColumnIdMapper = this.evaluatorColumnIdMapper(Object.keys(currentRunMetrics), currentRun);
+        const previousEvalColumnIdMapper = this.evaluatorColumnIdMapper(Object.keys(previousRunMetrics), currentRun);
+        coreExports.info(`evalColumnIdMapper ${JSON.stringify(currentEvalColumnIdMapper)}`);
+        coreExports.info(`previousColumnIdMapper ${JSON.stringify(previousEvalColumnIdMapper)}`);
         coreExports.info(`unique evals ${JSON.stringify(uniqueEvals)}`);
         coreExports.info(`currentRunMetrics ${JSON.stringify(currentRunMetrics)}`);
         coreExports.info(`previousRunMetrics ${JSON.stringify(previousRunMetrics)}`);
         for (const evaluator of uniqueEvals) {
             coreExports.info(`evaluator ${JSON.stringify(evaluator)}`);
-            const evalColumnId = evalColumnIdMapper[evaluator.evaluator_id];
-            const evalValues = this.collectEvalValues(currentManifestRows, evalColumnId, evaluator.evaluator_id);
-            const previousEvalValues = this.collectEvalValues(previousManifestRows, evalColumnId, evaluator.evaluator_id);
+            const currentEvalColumnId = currentEvalColumnIdMapper[evaluator.evaluator_id];
+            const previousEvalColumnId = previousEvalColumnIdMapper[evaluator.evaluator_id];
+            coreExports.info('collect eval for current');
+            const evalValues = this.collectEvalValues(currentManifestRows, currentEvalColumnId, evaluator.evaluator_id);
+            coreExports.info('collect eval for previous');
+            const previousEvalValues = this.collectEvalValues(previousManifestRows, previousEvalColumnId, evaluator.evaluator_id);
             coreExports.info(`current Evals values ${JSON.stringify(evalValues)}`);
             coreExports.info(`previous Evals values ${JSON.stringify(previousEvalValues)}`);
             if (evaluator.evaluator_key === 'bert_score') {

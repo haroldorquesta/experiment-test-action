@@ -130,8 +130,8 @@ export class GithubService {
 
   private isOrqExperimentConfigFile(
     filename: string,
-    basePath: string,
-    status: string
+    status: string,
+    basePath: string
   ): boolean {
     core.info(`filename: ${filename}`)
     core.info(`basePath: ${basePath}`)

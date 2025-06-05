@@ -38812,7 +38812,7 @@ class OrqApiClient {
         const previousRun = currentRunIndex !== -1 && currentRunIndex + 1 < experimentManifests.length
             ? experimentManifests[currentRunIndex + 1]
             : null;
-        coreExports.info(`previous run: ${currentRun?._id}`);
+        coreExports.info(`previous run: ${previousRun?._id}`);
         return [currentRun || null, previousRun || null];
     }
 }

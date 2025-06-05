@@ -38873,6 +38873,7 @@ class OrqExperimentAction {
         };
     }
     extractEvalValue(cell, evaluatorId) {
+        coreExports.info(`extracttttt: ${JSON.stringify(cell)}, evaluatorId: ${evaluatorId}`);
         const mapper = {};
         const { type, value } = cell.value;
         switch (type) {
@@ -39075,7 +39076,9 @@ class OrqExperimentAction {
                 coreExports.info(`Cell: ${cell}, evalColumnId: ${evalColumnId}, evaluatorId: ${evaluatorId}`);
                 if (cell.column_id === evalColumnId) {
                     coreExports.info('Matched');
-                    mapper = { ...mapper, ...this.extractEvalValue(cell, evaluatorId) };
+                    const extractedValue = this.extractEvalValue(cell, evaluatorId);
+                    coreExports.info(`extractedValue: ${extractedValue}`);
+                    mapper = { ...mapper, ...extractedValue };
                     break;
                 }
             }

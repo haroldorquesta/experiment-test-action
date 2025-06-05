@@ -95,6 +95,9 @@ class OrqExperimentAction {
     cell: ExperimentManifestRow,
     evaluatorId: string
   ): Record<string, number> {
+    core.info(
+      `extracttttt: ${JSON.stringify(cell)}, evaluatorId: ${evaluatorId}`
+    )
     const mapper: Record<string, number> = {}
 
     const { type, value } = cell.value
@@ -382,7 +385,9 @@ class OrqExperimentAction {
         )
         if (cell.column_id === evalColumnId) {
           core.info('Matched')
-          mapper = { ...mapper, ...this.extractEvalValue(cell, evaluatorId) }
+          const extractedValue = this.extractEvalValue(cell, evaluatorId)
+          core.info(`extractedValue: ${extractedValue}`)
+          mapper = { ...mapper, ...extractedValue }
           break
         }
       }

@@ -39067,7 +39067,9 @@ class OrqExperimentAction {
         for (const row of manifestRows.items) {
             let mapper = {};
             for (const cell of row.cells) {
+                coreExports.info(`Cell: ${cell}, evalColumnId: ${evalColumnId}, evaluatorId: ${evaluatorId}`);
                 if (cell.column_id === evalColumnId) {
+                    coreExports.info('Matched');
                     mapper = { ...mapper, ...this.extractEvalValue(cell, evaluatorId) };
                 }
             }
@@ -39158,7 +39160,7 @@ ${generateMarkdownTable(headers, rows)}
         const message = `## Orq Experiment report
 ### Experiment ${experimentKey}: 
 
-🔴 Error: ${error}
+🔴 Failed to run experiment, error: ${error}
 `;
         await this.upsertComment(commentKey, message);
     }

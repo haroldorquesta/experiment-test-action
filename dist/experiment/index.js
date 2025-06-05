@@ -38987,11 +38987,22 @@ class OrqExperimentAction {
         let regressions = 0;
         for (const [index, evaluator] of evalValues.entries()) {
             const score = evaluator[metricId] - previousEvalValues[index][metricId];
-            if (score > 0) {
-                improvements++;
+            // for metric evals scoring is inverse the lower the value the better
+            if (['orq_cost', 'orq_latency'].includes(metricId)) {
+                if (score < 0) {
+                    improvements++;
+                }
+                else if (score > 0) {
+                    regressions++;
+                }
             }
-            else if (score < 0) {
-                regressions++;
+            else {
+                if (score > 0) {
+                    improvements++;
+                }
+                else if (score < 0) {
+                    regressions++;
+                }
             }
         }
         return { improvements, regressions };
@@ -39001,6 +39012,12 @@ class OrqExperimentAction {
         if (diff === 0)
             return formatNumber(currentScore).toString();
         return `${formatNumber(currentScore)} ${diff > 0 ? `(+${formatNumber(diff)})` : `(${formatNumber(diff)})`}`;
+    }
+    formatInverseScoreDisplay(currentScore, previousScore) {
+        const diff = currentScore - previousScore;
+        if (diff === 0)
+            return formatNumber(currentScore).toString();
+        return `${formatNumber(currentScore)} ${diff > 0 ? `(-${formatNumber(diff)})` : `(${+formatNumber(Math.abs(diff))})`}`;
     }
     formatImprovementsRegressions(improvements, regressions) {
         return [
@@ -39065,7 +39082,9 @@ class OrqExperimentAction {
             const [improvementsStr, regressionsStr] = this.formatImprovementsRegressions(improvements, regressions);
             return [
                 evaluator.evaluator_name,
-                this.formatScoreDisplay(currentScore, previousScore),
+                ['orq_cost', 'orq_latency'].includes(evaluator.evaluator_id)
+                    ? this.formatInverseScoreDisplay(currentScore, previousScore)
+                    : this.formatScoreDisplay(currentScore, previousScore),
                 improvementsStr,
                 regressionsStr
             ];

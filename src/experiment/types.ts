@@ -85,7 +85,7 @@ export type ExperimentManifest = {
   metrics: Record<string, number>
 }
 
-export type ExperimentManifestRow = {
+export type ExperimentManifestRowCell = {
   type: string
   _id: string
   row_id: string
@@ -101,11 +101,11 @@ export type ExperimentManifestRow = {
   updated?: string
 }
 
-type ExperimentManifestRows = {
+type ExperimentManifestRow = {
   status: string
   sheet_id: string
   manifest_id: string
-  cells: ExperimentManifestRow[]
+  cells: ExperimentManifestRowCell[]
   created_by_id: string
   updated_by_id: string
   created: string
@@ -120,7 +120,7 @@ export type PaginatedExperimentManifestRows = {
   page: number
   limit: number
   totalPages: number
-  items: ExperimentManifestRows[]
+  items: ExperimentManifestRow[]
 }
 
 export type ExperimentEval = {

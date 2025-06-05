@@ -19,7 +19,7 @@ import type {
   PaginatedExperimentManifestRows,
   Experiment,
   ExperimentEval,
-  ExperimentManifestRow
+  ExperimentManifestRowCell
 } from './types.js'
 import { SheetRunStatus } from './enums.js'
 import { OrqApiClient } from './api-client.js'
@@ -92,7 +92,7 @@ class OrqExperimentAction {
   }
 
   private extractEvalValue(
-    cell: ExperimentManifestRow,
+    cell: ExperimentManifestRowCell,
     evaluatorId: string
   ): Record<string, number> {
     core.info(
@@ -235,10 +235,19 @@ class OrqExperimentAction {
 
     for (const [index, evaluator] of evalValues.entries()) {
       const score = evaluator[metricId] - previousEvalValues[index][metricId]
-      if (score > 0) {
-        improvements++
-      } else if (score < 0) {
-        regressions++
+      // for metric evals scoring is inverse the lower the value the better
+      if (['orq_cost', 'orq_latency'].includes(metricId)) {
+        if (score < 0) {
+          improvements++
+        } else if (score > 0) {
+          regressions++
+        }
+      } else {
+        if (score > 0) {
+          improvements++
+        } else if (score < 0) {
+          regressions++
+        }
       }
     }
 
@@ -252,6 +261,15 @@ class OrqExperimentAction {
     const diff = currentScore - previousScore
     if (diff === 0) return formatNumber(currentScore).toString()
     return `${formatNumber(currentScore)} ${diff > 0 ? `(+${formatNumber(diff)})` : `(${formatNumber(diff)})`}`
+  }
+
+  private formatInverseScoreDisplay(
+    currentScore: number,
+    previousScore: number
+  ): string {
+    const diff = currentScore - previousScore
+    if (diff === 0) return formatNumber(currentScore).toString()
+    return `${formatNumber(currentScore)} ${diff > 0 ? `(-${formatNumber(diff)})` : `(${+formatNumber(Math.abs(diff))})`}`
   }
 
   private formatImprovementsRegressions(
@@ -364,7 +382,9 @@ class OrqExperimentAction {
 
       return [
         evaluator.evaluator_name,
-        this.formatScoreDisplay(currentScore, previousScore),
+        ['orq_cost', 'orq_latency'].includes(evaluator.evaluator_id)
+          ? this.formatInverseScoreDisplay(currentScore, previousScore)
+          : this.formatScoreDisplay(currentScore, previousScore),
         improvementsStr,
         regressionsStr
       ]

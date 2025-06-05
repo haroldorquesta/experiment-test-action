@@ -445,6 +445,7 @@ class OrqExperimentAction {
       for (const evaluator of experiment.unique_evaluators) {
         const evalId = evaluator.evaluator_id
         core.info(`evaluator: ${JSON.stringify(evaluator)}`)
+        core.info(`evalColumnIdMaper: ${JSON.stringify(evalColumnIdMapper)}`)
         const evalColumnId = evalColumnIdMapper[evalId]
         core.info(`evalColumnId: ${JSON.stringify(evalColumnId)}`)
 

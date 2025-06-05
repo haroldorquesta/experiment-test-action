@@ -39463,6 +39463,7 @@ class OrqExperimentAction {
             for (const evaluator of experiment.unique_evaluators) {
                 const evalId = evaluator.evaluator_id;
                 coreExports.info(`evaluator: ${JSON.stringify(evaluator)}`);
+                coreExports.info(`evalColumnIdMaper: ${JSON.stringify(evalColumnIdMapper)}`);
                 const evalColumnId = evalColumnIdMapper[evalId];
                 coreExports.info(`evalColumnId: ${JSON.stringify(evalColumnId)}`);
                 if (!evalColumnId)

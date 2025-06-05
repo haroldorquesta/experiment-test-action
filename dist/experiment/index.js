@@ -39216,7 +39216,7 @@ class OrqExperimentAction {
             coreExports.info(`Files changed: ${JSON.stringify(filesChanged)}`);
             coreExports.info(`Found ${filesChanged.length} files changed`);
             // Process all files in parallel
-            await Promise.all(filesChanged.map((filename) => this.processFile(filename, baseSha)));
+            await Promise.all([filesChanged[0]].map((filename) => this.processFile(filename, baseSha)));
         }
         catch (error) {
             coreExports.error(`Failed to run Orq experiment: ${error}`);

@@ -50,7 +50,7 @@ class OrqExperimentAction {
 
       // Process all files in parallel
       await Promise.all(
-        [filesChanged[0]].map((filename) => this.processFile(filename, baseSha))
+        filesChanged.map((filename) => this.processFile(filename, baseSha))
       )
     } catch (error) {
       core.error(`Failed to run Orq experiment: ${error}`)

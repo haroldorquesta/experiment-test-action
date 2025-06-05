@@ -39280,11 +39280,14 @@ class OrqExperimentAction {
         coreExports.info('get experiment');
         // Get experiment details
         const experiment = await this.apiClient.getExperiment(experimentRun.experiment_id);
+        coreExports.info(JSON.stringify(experiment));
         coreExports.info('get current run maifest');
         // Get results
         const currentRun = await this.apiClient.getExperimentManifest(experimentRun.experiment_id, experimentRun.experiment_run_id);
+        coreExports.info(JSON.stringify(currentRun));
         coreExports.info('get experiment manifest rows');
         const currentManifestRows = await this.apiClient.getExperimentManifestRows(experimentRun.experiment_id, experimentRun.experiment_run_id);
+        coreExports.info(JSON.stringify(currentManifestRows));
         coreExports.info('get previous run');
         // Try to get previous run for comparison
         let previousRun = null;
@@ -39312,6 +39315,9 @@ class OrqExperimentAction {
         catch (error) {
             throw new OrqExperimentError(`Failed to get previous run for comparison: ${error}`);
         }
+        coreExports.info(JSON.stringify(previousRun));
+        coreExports.info('previous maniefst rows');
+        coreExports.info(JSON.stringify(previousManifestRows));
         coreExports.info('running eval table');
         // Generate comparison tables
         const evalTable = previousRun && previousManifestRows

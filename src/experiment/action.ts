@@ -160,6 +160,8 @@ class OrqExperimentAction {
       experimentRun.experiment_id
     )
 
+    core.info(JSON.stringify(experiment))
+
     core.info('get current run maifest')
 
     // Get results
@@ -168,12 +170,16 @@ class OrqExperimentAction {
       experimentRun.experiment_run_id
     )
 
+    core.info(JSON.stringify(currentRun))
+
     core.info('get experiment manifest rows')
 
     const currentManifestRows = await this.apiClient.getExperimentManifestRows(
       experimentRun.experiment_id,
       experimentRun.experiment_run_id
     )
+
+    core.info(JSON.stringify(currentManifestRows))
 
     core.info('get previous run')
 
@@ -219,6 +225,10 @@ class OrqExperimentAction {
         `Failed to get previous run for comparison: ${error}`
       )
     }
+
+    core.info(JSON.stringify(previousRun))
+    core.info('previous maniefst rows')
+    core.info(JSON.stringify(previousManifestRows))
 
     core.info('running eval table')
 

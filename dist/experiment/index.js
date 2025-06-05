@@ -39122,21 +39122,21 @@ class CommentFormatter {
 🔄 Your experiment is currently running. Results will be posted here once complete.
 
 ---
-${experimentId && experimentRunId && `[View running experiment in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${experimentId}/run/${experimentRunId})`}
+${experimentId && experimentRunId ? `[View running experiment in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${experimentId}/run/${experimentRunId})` : ''}
 `;
     }
-    formatExperimentResultsComment(experiment, deploymentName, evalTable, filename, experimentRunId) {
+    formatExperimentResultsComment(experimentId, experimentRunId, experimentKey, deploymentKey, evalTable, filename) {
         const key = this.generateCommentKey(filename);
         const content = `${key}
 ## 🧪 Orq.ai Experiment Results
 
-**Deployment:** ${deploymentName}
-**Experiment:** ${experiment.name}
+**Deployment:** ${deploymentKey}  
+**Experiment:** ${experimentKey}
 
 ${this.formatEvaluationTable(evalTable)}
 
 ---
-[View detailed results in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${experiment.id}/run/${experimentRunId})`;
+[View detailed results in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${experimentId}/run/${experimentRunId})`;
         return content;
     }
     formatExperimentErrorComment(error, filename, deploymentName, experimentName) {
@@ -39276,15 +39276,21 @@ class OrqExperimentAction {
         const key = this.commentFormatter.generateCommentKey(filename);
         await this.githubService.upsertComment(key, runningComment);
         // Run the experiment
-        const experimentRun = await this.orchestrateExperimentRun(payload);
+        const experimentRun = await this.apiClient.createExperimentRun(payload);
         // Post initial running comment with experiment link
         runningComment = this.commentFormatter.formatExperimentRunningComment(experiment_key, deployment_key, filename, experimentRun.experiment_id, experimentRun.experiment_run_id);
         await this.githubService.upsertComment(key, runningComment);
+        coreExports.info('wait for completion');
+        await this.waitForCompletion(experimentRun);
+        coreExports.info('get experiment');
         // Get experiment details
         const experiment = await this.apiClient.getExperiment(experimentRun.experiment_id);
+        coreExports.info('get current run maifest');
         // Get results
         const currentRun = await this.apiClient.getExperimentManifest(experimentRun.experiment_id, experimentRun.experiment_run_id);
+        coreExports.info('get experiment manifest rows');
         const currentManifestRows = await this.apiClient.getExperimentManifestRows(experimentRun.experiment_id, experimentRun.experiment_run_id);
+        coreExports.info('get previous run');
         // Try to get previous run for comparison
         let previousRun = null;
         let previousManifestRows = null;
@@ -39304,23 +39310,15 @@ class OrqExperimentAction {
             }
         }
         catch (error) {
-            coreExports.warning(`Failed to get previous run for comparison: ${error}`);
+            throw new OrqExperimentError(`Failed to get previous run for comparison: ${error}`);
         }
         // Generate comparison tables
         const evalTable = previousRun && previousManifestRows
             ? this.generateEvalComparisonTable(experiment, currentRun, previousRun, currentManifestRows, previousManifestRows)
             : [];
         // Post results comment
-        const resultsComment = this.commentFormatter.formatExperimentResultsComment(experiment, deployment_key, evalTable, filename, experimentRun.experiment_run_id);
+        const resultsComment = this.commentFormatter.formatExperimentResultsComment(experimentRun.experiment_id, experimentRun.experiment_run_id, experiment_key, deployment_key, evalTable, filename);
         await this.githubService.upsertComment(key, resultsComment);
-    }
-    async orchestrateExperimentRun(payload) {
-        if (!this.apiClient) {
-            throw new OrqExperimentError('API client not initialized');
-        }
-        const experimentRun = await this.apiClient.createExperimentRun(payload);
-        await this.waitForCompletion(experimentRun);
-        return experimentRun;
     }
     async waitForCompletion(experimentRun) {
         if (!this.apiClient) {

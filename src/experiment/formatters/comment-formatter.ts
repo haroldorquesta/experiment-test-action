@@ -1,4 +1,3 @@
-import type { Experiment } from '../types.js'
 import { formatNumber, generateMarkdownTable } from '../utils.js'
 import { CONSTANTS } from '../constants.js'
 
@@ -25,29 +24,30 @@ export class CommentFormatter {
 🔄 Your experiment is currently running. Results will be posted here once complete.
 
 ---
-${experimentId && experimentRunId && `[View running experiment in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${experimentId}/run/${experimentRunId})`}
+${experimentId && experimentRunId ? `[View running experiment in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${experimentId}/run/${experimentRunId})` : ''}
 `
   }
 
   formatExperimentResultsComment(
-    experiment: Experiment,
-    deploymentName: string,
+    experimentId: string,
+    experimentRunId: string,
+    experimentKey: string,
+    deploymentKey: string,
     evalTable: string[][],
-    filename: string,
-    experimentRunId: string
+    filename: string
   ): string {
     const key = this.generateCommentKey(filename)
 
     const content = `${key}
 ## 🧪 Orq.ai Experiment Results
 
-**Deployment:** ${deploymentName}
-**Experiment:** ${experiment.name}
+**Deployment:** ${deploymentKey}  
+**Experiment:** ${experimentKey}
 
 ${this.formatEvaluationTable(evalTable)}
 
 ---
-[View detailed results in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${experiment.id}/run/${experimentRunId})`
+[View detailed results in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${experimentId}/run/${experimentRunId})`
 
     return content
   }

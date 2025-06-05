@@ -137,7 +137,7 @@ class OrqExperimentAction {
     await this.githubService.upsertComment(key, runningComment)
 
     // Run the experiment
-    const experimentRun = await this.orchestrateExperimentRun(payload)
+    const experimentRun = await this.apiClient.createExperimentRun(payload)
 
     // Post initial running comment with experiment link
     runningComment = this.commentFormatter.formatExperimentRunningComment(
@@ -149,10 +149,18 @@ class OrqExperimentAction {
     )
     await this.githubService.upsertComment(key, runningComment)
 
+    core.info('wait for completion')
+
+    await this.waitForCompletion(experimentRun)
+
+    core.info('get experiment')
+
     // Get experiment details
     const experiment = await this.apiClient.getExperiment(
       experimentRun.experiment_id
     )
+
+    core.info('get current run maifest')
 
     // Get results
     const currentRun = await this.apiClient.getExperimentManifest(
@@ -160,10 +168,14 @@ class OrqExperimentAction {
       experimentRun.experiment_run_id
     )
 
+    core.info('get experiment manifest rows')
+
     const currentManifestRows = await this.apiClient.getExperimentManifestRows(
       experimentRun.experiment_id,
       experimentRun.experiment_run_id
     )
+
+    core.info('get previous run')
 
     // Try to get previous run for comparison
     let previousRun: ExperimentManifest | null = null
@@ -197,7 +209,9 @@ class OrqExperimentAction {
         )
       }
     } catch (error) {
-      core.warning(`Failed to get previous run for comparison: ${error}`)
+      throw new OrqExperimentError(
+        `Failed to get previous run for comparison: ${error}`
+      )
     }
 
     // Generate comparison tables
@@ -214,27 +228,15 @@ class OrqExperimentAction {
 
     // Post results comment
     const resultsComment = this.commentFormatter.formatExperimentResultsComment(
-      experiment,
+      experimentRun.experiment_id,
+      experimentRun.experiment_run_id,
+      experiment_key,
       deployment_key,
       evalTable,
-      filename,
-      experimentRun.experiment_run_id
+      filename
     )
 
     await this.githubService.upsertComment(key, resultsComment)
-  }
-
-  private async orchestrateExperimentRun(
-    payload: DeploymentExperimentRunPayload
-  ): Promise<DeploymentExperimentRunResponse> {
-    if (!this.apiClient) {
-      throw new OrqExperimentError('API client not initialized')
-    }
-
-    const experimentRun = await this.apiClient.createExperimentRun(payload)
-
-    await this.waitForCompletion(experimentRun)
-    return experimentRun
   }
 
   private async waitForCompletion(

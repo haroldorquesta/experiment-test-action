@@ -39346,8 +39346,12 @@ class OrqExperimentAction {
     }
     generateEvalComparisonTable(experiment, currentRun, previousRun, currentManifestRows, previousManifestRows) {
         const evalTable = [];
+        coreExports.info('current evals');
         const currentEvals = this.extractEvalValues(experiment, currentRun, currentManifestRows);
+        coreExports.info(JSON.stringify(currentEvals));
+        coreExports.info('previous evals');
         const previousEvals = this.extractEvalValues(experiment, previousRun, previousManifestRows);
+        coreExports.info(JSON.stringify(previousEvals));
         for (const evaluator of experiment.unique_evaluators) {
             const evalId = evaluator.evaluator_id;
             const evalType = evaluator.evaluator_type;

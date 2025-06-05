@@ -280,16 +280,20 @@ class OrqExperimentAction {
     previousManifestRows: PaginatedExperimentManifestRows
   ): string[][] {
     const evalTable: string[][] = []
+    core.info('current evals')
     const currentEvals = this.extractEvalValues(
       experiment,
       currentRun,
       currentManifestRows
     )
+    core.info(JSON.stringify(currentEvals))
+    core.info('previous evals')
     const previousEvals = this.extractEvalValues(
       experiment,
       previousRun,
       previousManifestRows
     )
+    core.info(JSON.stringify(previousEvals))
 
     for (const evaluator of experiment.unique_evaluators) {
       const evalId = evaluator.evaluator_id

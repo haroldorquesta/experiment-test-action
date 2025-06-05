@@ -290,9 +290,12 @@ class OrqExperimentAction {
     for (const evaluator of experiment.unique_evaluators) {
       const evalId = evaluator.evaluator_id
       const evalType = evaluator.evaluator_type
+      core.info(`evalType: ${evalType}`)
 
       // Get all metric keys for this evaluator based on type
       const metricKeys = this.getMetricKeysForEvaluator(evalId, evalType)
+
+      core.info(`metricKeys: ${metricKeys}`)
 
       for (const metricKey of metricKeys) {
         let improvements = 0

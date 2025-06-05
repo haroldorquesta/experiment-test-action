@@ -102,8 +102,12 @@ class OrqExperimentAction {
 
     const { type, value } = cell.value
 
+    core.info(`type: ${type}, value: ${value}`)
+
     switch (type) {
       case 'number':
+      case 'cost':
+      case 'latency':
         if (typeof value === 'number') {
           mapper[evaluatorId] = value
         }
@@ -115,7 +119,7 @@ class OrqExperimentAction {
             : CONSTANTS.FAILED_SCORE
         }
         break
-      case 'llm_eval':
+      case 'llm_evaluator':
         if (isLLMEvalValue(value)) {
           if (typeof value.value === 'boolean') {
             mapper[evaluatorId] = value.value

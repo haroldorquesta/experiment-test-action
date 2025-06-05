@@ -39099,8 +39099,18 @@ class OrqExperimentAction {
         coreExports.info('generate regressions');
         const uniqueEvals = experiment.unique_evaluators;
         const evals = [];
+        coreExports.info('generate regressions currentRun');
+        coreExports.info(JSON.stringify(currentRun));
+        coreExports.info('generate regressions currentManifestRows');
+        coreExports.info(JSON.stringify(currentManifestRows));
+        coreExports.info('generate regressions previousManifestRows');
+        coreExports.info(JSON.stringify(previousManifestRows));
         const currentRunMetrics = this.normalizeMetrics(currentRun.metrics);
         const previousRunMetrics = this.normalizeMetrics(previousRun.metrics);
+        coreExports.info('currentRunMetrics');
+        coreExports.info(JSON.stringify(currentRunMetrics));
+        coreExports.info('previousRunMetrics');
+        coreExports.info(JSON.stringify(previousRunMetrics));
         const currentEvalColumnIdMapper = this.evaluatorColumnIdMapper(Object.keys(currentRunMetrics), currentRun);
         const previousEvalColumnIdMapper = this.evaluatorColumnIdMapper(Object.keys(previousRunMetrics), currentRun);
         coreExports.info(`evalColumnIdMapper ${JSON.stringify(currentEvalColumnIdMapper)}`);
@@ -39154,7 +39164,7 @@ class OrqExperimentAction {
             let rows = [];
             if (currentRun !== null && previousRun !== null) {
                 const [currentExperimentManifestRows, previousExperimentManifestRows] = await Promise.all([
-                    this.apiClient.getExperimentManifestRows(experimentRun.experiment_id, experimentRun.experiment_run_id),
+                    this.apiClient.getExperimentManifestRows(experimentRun.experiment_id, currentRun._id),
                     this.apiClient.getExperimentManifestRows(experimentRun.experiment_id, previousRun._id)
                 ]);
                 rows = this.generateEvalImprovementsRegressions(experiment, currentRun, previousRun, currentExperimentManifestRows, previousExperimentManifestRows);

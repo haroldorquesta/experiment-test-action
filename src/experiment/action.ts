@@ -415,8 +415,22 @@ class OrqExperimentAction {
 
     const evals: string[][] = []
 
+    core.info('generate regressions currentRun')
+    core.info(JSON.stringify(currentRun))
+
+    core.info('generate regressions currentManifestRows')
+    core.info(JSON.stringify(currentManifestRows))
+
+    core.info('generate regressions previousManifestRows')
+    core.info(JSON.stringify(previousManifestRows))
+
     const currentRunMetrics = this.normalizeMetrics(currentRun.metrics)
     const previousRunMetrics = this.normalizeMetrics(previousRun.metrics)
+
+    core.info('currentRunMetrics')
+    core.info(JSON.stringify(currentRunMetrics))
+    core.info('previousRunMetrics')
+    core.info(JSON.stringify(previousRunMetrics))
 
     const currentEvalColumnIdMapper = this.evaluatorColumnIdMapper(
       Object.keys(currentRunMetrics),
@@ -527,7 +541,7 @@ class OrqExperimentAction {
           await Promise.all([
             this.apiClient.getExperimentManifestRows(
               experimentRun.experiment_id,
-              experimentRun.experiment_run_id
+              currentRun._id
             ),
             this.apiClient.getExperimentManifestRows(
               experimentRun.experiment_id,

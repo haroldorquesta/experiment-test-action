@@ -34867,7 +34867,7 @@ class OrqExperimentClientApi {
         });
     }
     async createExperimentRun(payload) {
-        return this.makeRequest(`/v1/deployments/${payload.deployment_key}/experiment`, {
+        return this.makeRequest(`/v2/deployments/${payload.deployment_key}/experiment`, {
             method: 'POST',
             body: {
                 type: 'deployment_experiment',

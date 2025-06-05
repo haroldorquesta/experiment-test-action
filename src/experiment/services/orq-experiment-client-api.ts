@@ -114,7 +114,7 @@ export class OrqExperimentClientApi {
     payload: DeploymentExperimentRunPayload
   ): Promise<DeploymentExperimentRunResponse> {
     return this.makeRequest<DeploymentExperimentRunResponse>(
-      `/v1/deployments/${payload.deployment_key}/experiment`,
+      `/v2/deployments/${payload.deployment_key}/experiment`,
       {
         method: 'POST',
         body: {

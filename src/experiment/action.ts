@@ -485,15 +485,15 @@ class OrqExperimentAction {
 
     for (const evalKey of evalKeys) {
       core.info(`evalKey ${evalKey}`)
-      const evalKeyList = evalKey.split('_')
+      const normalizeEvalKey = evalKey.split('_')[0]
 
-      let normalizeEvalKey = ''
+      // let normalizeEvalKey = ''
 
-      if (evalKeyList.length === 1) {
-        normalizeEvalKey = evalKeyList[0]
-      } else {
-        normalizeEvalKey = evalKeyList.slice(1).join('_')
-      }
+      // if (evalKeyList.length === 1) {
+      //   normalizeEvalKey = evalKeyList[0]
+      // } else {
+      //   normalizeEvalKey = evalKeyList.slice(1).join('_')
+      // }
 
       for (const column of run.columns) {
         if (

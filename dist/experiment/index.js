@@ -39490,14 +39490,13 @@ class OrqExperimentAction {
         coreExports.info(JSON.stringify(run.columns));
         for (const evalKey of evalKeys) {
             coreExports.info(`evalKey ${evalKey}`);
-            const evalKeyList = evalKey.split('_');
-            let normalizeEvalKey = '';
-            if (evalKeyList.length === 1) {
-                normalizeEvalKey = evalKeyList[0];
-            }
-            else {
-                normalizeEvalKey = evalKeyList.slice(1).join('_');
-            }
+            const normalizeEvalKey = evalKey.split('_')[0];
+            // let normalizeEvalKey = ''
+            // if (evalKeyList.length === 1) {
+            //   normalizeEvalKey = evalKeyList[0]
+            // } else {
+            //   normalizeEvalKey = evalKeyList.slice(1).join('_')
+            // }
             for (const column of run.columns) {
                 if ('config' in column &&
                     'evaluator_id' in column.config &&

@@ -10,6 +10,7 @@ export class CommentFormatter {
     experimentKey: string,
     deploymentKey: string,
     filename: string,
+    workspaceKey?: string,
     experimentId?: string,
     experimentRunId?: string
   ): string {
@@ -24,7 +25,7 @@ export class CommentFormatter {
 🔄 Your experiment is currently running. Results will be posted here once complete.
 
 ---
-${experimentId && experimentRunId ? `[View running experiment in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${experimentId}/run/${experimentRunId})` : ''}
+${experimentId && experimentRunId && workspaceKey ? `[View running experiment in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${workspaceKey}/${experimentId}/run/${experimentRunId})` : ''}
 `
   }
 
@@ -33,6 +34,7 @@ ${experimentId && experimentRunId ? `[View running experiment in Orq.ai](${CONST
     experimentRunId: string,
     experimentKey: string,
     deploymentKey: string,
+    workspaceKey: string,
     evalTable: string[][],
     filename: string
   ): string {
@@ -47,7 +49,7 @@ ${experimentId && experimentRunId ? `[View running experiment in Orq.ai](${CONST
 ${this.formatEvaluationTable(evalTable)}
 
 ---
-[View detailed results in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${experimentId}/run/${experimentRunId})`
+[View detailed results in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${workspaceKey}/${experimentId}/run/${experimentRunId})`
 
     return content
   }
@@ -55,20 +57,29 @@ ${this.formatEvaluationTable(evalTable)}
   formatExperimentErrorComment(
     error: Error,
     filename: string,
-    deploymentName?: string,
-    experimentName?: string
+    experimentKey?: string,
+    deploymentKey?: string,
+    workspaceKey?: string,
+    experimentId?: string,
+    experimentRunId?: string
   ): string {
     const key = this.generateCommentKey(filename)
 
     return `${key}
-## ❌ Orq.ai Experiment Failed
+## ❌ Orq.ai Experiment Run Failed
 
-${deploymentName ? `**Deployment:** ${deploymentName}` : ''}  
-${experimentName ? `**Experiment:** ${experimentName}` : ''}  
+**Deployment:** ${deploymentKey}  
+**Experiment:** ${experimentKey}
+
+${deploymentKey ? `**Deployment:** ${deploymentKey}` : ''}  
+${experimentKey ? `**Experiment:** ${experimentKey}` : ''}  
 
 **Error:** ${error.message}
 
-Please check your configuration and try again.`
+Please check your configuration and try again.
+---
+${experimentId && experimentRunId && workspaceKey ? `[View running experiment in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${workspaceKey}/${experimentId}/run/${experimentRunId})` : ''}
+`
   }
 
   private formatEvaluationTable(evalTable: string[][]): string {

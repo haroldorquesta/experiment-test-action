@@ -5,7 +5,8 @@ import type {
   ExperimentManifest,
   PaginatedExperimentManifestRows,
   Experiment,
-  ExperimentManifestRow
+  ExperimentManifestRow,
+  Account
 } from '../types.js'
 import { OrqExperimentError } from '../errors.js'
 import { CONSTANTS } from '../constants.js'
@@ -130,6 +131,12 @@ export class OrqExperimentClientApi {
         }
       }
     )
+  }
+
+  async getAccount() {
+    return this.makeRequest<Account>(`/v2/api/me`, {
+      method: 'GET'
+    })
   }
 
   async getCurrentAndPreviousRunManifest(

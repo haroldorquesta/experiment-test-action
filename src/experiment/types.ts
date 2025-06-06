@@ -102,6 +102,17 @@ export type ExperimentManifestRowCell = {
   updated?: string
 }
 
+type Workspace = {
+  id: string
+  name: string
+  key: string
+}
+
+export type Account = {
+  id: string
+  workspaces: Workspace[]
+}
+
 export type ExperimentManifestRow = {
   status: string
   sheet_id: string

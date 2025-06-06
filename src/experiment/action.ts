@@ -8,7 +8,8 @@ import type {
   ExperimentManifest,
   Experiment,
   ExperimentEvalResults,
-  ExperimentManifestRow
+  ExperimentManifestRow,
+  Account
 } from './types.js'
 import { SheetRunStatus } from './enums.js'
 import { OrqExperimentClientApi } from './services/orq-experiment-client-api.js'
@@ -24,6 +25,7 @@ class OrqExperimentAction {
   private metricsProcessor: MetricsProcessor
   private commentFormatter: CommentFormatter
   private path = ''
+  private account: Account | null = null
 
   constructor() {
     const githubToken = core.getInput('github_token')
@@ -41,6 +43,8 @@ class OrqExperimentAction {
       if (!this.githubService.getPullRequest()) {
         throw new OrqExperimentError('Pull request not found!')
       }
+
+      await this.apiClient?.getAccount()
 
       const baseSha = await this.githubService.getPullRequestBase()
       const filesChanged = await this.githubService.getFilesChanged(this.path)
@@ -117,6 +121,16 @@ class OrqExperimentAction {
     return yaml.parse(fileContent)
   }
 
+  private getExperimentWorkspace(workspaceId: string): string {
+    for (const workspace of this.account?.workspaces ?? []) {
+      if (workspace.id === workspaceId) {
+        return workspace.key
+      }
+    }
+
+    return ''
+  }
+
   private async runExperiment(
     filename: string,
     payload: DeploymentExperimentRunPayload
@@ -126,101 +140,126 @@ class OrqExperimentAction {
     }
 
     const { deployment_key, experiment_key } = payload
+    let experiment: Experiment | null = null
+    let experimentRun: DeploymentExperimentRunResponse | null = null
+    let experimentWorkspace: string = ''
 
-    // Initial running comment
-    let runningComment = this.commentFormatter.formatExperimentRunningComment(
-      experiment_key,
-      deployment_key,
-      filename
-    )
-    const key = this.commentFormatter.generateCommentKey(filename)
-    await this.githubService.upsertComment(key, runningComment)
+    try {
+      // Initial running comment
+      let runningComment = this.commentFormatter.formatExperimentRunningComment(
+        experiment_key,
+        deployment_key,
+        filename
+      )
+      const key = this.commentFormatter.generateCommentKey(filename)
+      await this.githubService.upsertComment(key, runningComment)
 
-    // Run the experiment
-    const experimentRun = await this.apiClient.createExperimentRun(payload)
+      // Run the experiment
+      experimentRun = await this.apiClient.createExperimentRun(payload)
 
-    // Post initial running comment with experiment link
-    runningComment = this.commentFormatter.formatExperimentRunningComment(
-      experiment_key,
-      deployment_key,
-      filename,
-      experimentRun.experiment_id,
-      experimentRun.experiment_run_id
-    )
-    await this.githubService.upsertComment(key, runningComment)
+      // Get experiment details
+      experiment = await this.apiClient.getExperiment(
+        experimentRun.experiment_id
+      )
 
-    core.info('wait for completion')
+      experimentWorkspace = this.getExperimentWorkspace(experiment.workspace_id)
 
-    await this.waitForCompletion(experimentRun)
-
-    core.info('get experiment')
-
-    // Get experiment details
-    const experiment = await this.apiClient.getExperiment(
-      experimentRun.experiment_id
-    )
-
-    core.info(JSON.stringify(experiment))
-
-    core.info('get current run')
-
-    const [currentRun, previousRun] =
-      await this.apiClient.getCurrentAndPreviousRunManifest(
+      // Post initial running comment with experiment link
+      runningComment = this.commentFormatter.formatExperimentRunningComment(
+        experiment_key,
+        deployment_key,
+        filename,
+        experimentWorkspace,
         experimentRun.experiment_id,
         experimentRun.experiment_run_id
       )
+      await this.githubService.upsertComment(key, runningComment)
 
-    core.info(JSON.stringify(currentRun))
+      core.info('wait for completion')
 
-    core.info('get experiment manifest rows')
+      await this.waitForCompletion(experimentRun)
 
-    const currentManifestRows = await this.apiClient.getExperimentManifestRows(
-      experimentRun.experiment_id,
-      experimentRun.experiment_run_id
-    )
+      core.info('get experiment')
 
-    core.info(JSON.stringify(currentManifestRows))
+      core.info(JSON.stringify(experiment))
 
-    core.info('get previous run')
+      core.info('get current run')
 
-    let previousManifestRows: ExperimentManifestRow[] | null = null
+      const [currentRun, previousRun] =
+        await this.apiClient.getCurrentAndPreviousRunManifest(
+          experimentRun.experiment_id,
+          experimentRun.experiment_run_id
+        )
 
-    if (previousRun) {
-      previousManifestRows = await this.apiClient.getExperimentManifestRows(
-        experimentRun.experiment_id,
-        previousRun._id
-      )
+      core.info(JSON.stringify(currentRun))
+
+      core.info('get experiment manifest rows')
+
+      const currentManifestRows =
+        await this.apiClient.getExperimentManifestRows(
+          experimentRun.experiment_id,
+          experimentRun.experiment_run_id
+        )
+
+      core.info(JSON.stringify(currentManifestRows))
+
+      core.info('get previous run')
+
+      let previousManifestRows: ExperimentManifestRow[] | null = null
+
+      if (previousRun) {
+        previousManifestRows = await this.apiClient.getExperimentManifestRows(
+          experimentRun.experiment_id,
+          previousRun._id
+        )
+      }
+
+      core.info(JSON.stringify(previousRun))
+      core.info('previous maniefst rows')
+      core.info(JSON.stringify(previousManifestRows))
+
+      core.info('running eval table')
+
+      // Generate comparison tables
+      const evalTable =
+        previousRun && previousManifestRows
+          ? this.generateEvalComparisonTable(
+              experiment,
+              currentRun,
+              previousRun,
+              currentManifestRows,
+              previousManifestRows
+            )
+          : []
+
+      // Post results comment
+      const resultsComment =
+        this.commentFormatter.formatExperimentResultsComment(
+          experimentRun.experiment_id,
+          experimentRun.experiment_run_id,
+          experiment_key,
+          deployment_key,
+          experimentWorkspace,
+          evalTable,
+          filename
+        )
+
+      await this.githubService.upsertComment(key, resultsComment)
+    } catch (error) {
+      if (error instanceof Error) {
+        const comment = this.commentFormatter.formatExperimentErrorComment(
+          error,
+          filename,
+          experiment_key,
+          deployment_key,
+          experimentWorkspace,
+          experimentRun?.experiment_id ?? '',
+          experimentRun?.experiment_run_id ?? ''
+        )
+        const key = this.commentFormatter.generateCommentKey(filename)
+        await this.githubService.upsertComment(key, comment)
+      }
     }
-
-    core.info(JSON.stringify(previousRun))
-    core.info('previous maniefst rows')
-    core.info(JSON.stringify(previousManifestRows))
-
-    core.info('running eval table')
-
-    // Generate comparison tables
-    const evalTable =
-      previousRun && previousManifestRows
-        ? this.generateEvalComparisonTable(
-            experiment,
-            currentRun,
-            previousRun,
-            currentManifestRows,
-            previousManifestRows
-          )
-        : []
-
-    // Post results comment
-    const resultsComment = this.commentFormatter.formatExperimentResultsComment(
-      experimentRun.experiment_id,
-      experimentRun.experiment_run_id,
-      experiment_key,
-      deployment_key,
-      evalTable,
-      filename
-    )
-
-    await this.githubService.upsertComment(key, resultsComment)
   }
 
   private async waitForCompletion(

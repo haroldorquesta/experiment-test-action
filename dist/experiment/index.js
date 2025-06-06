@@ -39322,7 +39322,7 @@ class OrqExperimentAction {
             coreExports.info(`metricKeys: ${metricKeys}`);
             for (const metricKey of metricKeys) {
                 const currentAverage = currentRunNormalizedMetrics[metricKey];
-                const averageDisplay = `${formatNumber(currentAverage)}}`;
+                const averageDisplay = `${formatNumber(currentAverage)}`;
                 // Generate display name for the metric
                 const displayName = this.getMetricDisplayName(evalId, metricKey, evaluator.evaluator_name);
                 evalTableRows.push([displayName, averageDisplay]);

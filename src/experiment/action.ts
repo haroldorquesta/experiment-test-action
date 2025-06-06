@@ -306,7 +306,7 @@ class OrqExperimentAction {
       for (const metricKey of metricKeys) {
         const currentAverage = currentRunNormalizedMetrics[metricKey]
 
-        const averageDisplay = `${formatNumber(currentAverage)}}`
+        const averageDisplay = `${formatNumber(currentAverage)}`
 
         // Generate display name for the metric
         const displayName = this.getMetricDisplayName(

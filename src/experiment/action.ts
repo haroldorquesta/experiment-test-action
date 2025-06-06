@@ -452,9 +452,10 @@ class OrqExperimentAction {
         if (!evalColumnId) continue
 
         for (const cell of row.cells) {
-          core.info(`cell: ${JSON.stringify(cell)}`)
+          // core.info(`cell: ${JSON.stringify(cell)}`)
           if (cell.column_id === evalColumnId) {
             core.info(`matched:`)
+            core.info(`cell: ${JSON.stringify(cell)}`)
             const extractedValue = this.metricsProcessor.extractEvalValue(
               cell,
               evalId

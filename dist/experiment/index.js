@@ -39469,9 +39469,10 @@ class OrqExperimentAction {
                 if (!evalColumnId)
                     continue;
                 for (const cell of row.cells) {
-                    coreExports.info(`cell: ${JSON.stringify(cell)}`);
+                    // core.info(`cell: ${JSON.stringify(cell)}`)
                     if (cell.column_id === evalColumnId) {
                         coreExports.info(`matched:`);
+                        coreExports.info(`cell: ${JSON.stringify(cell)}`);
                         const extractedValue = this.metricsProcessor.extractEvalValue(cell, evalId);
                         coreExports.info(`extractedValue: ${JSON.stringify(extractedValue)}`);
                         mapper = { ...mapper, ...extractedValue };

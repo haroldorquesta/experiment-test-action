@@ -54,8 +54,25 @@ fi
 # 2. Display the latest release tag
 echo -e "The latest release tag is: ${BOLD_BLUE}${latest_tag}${OFF}"
 
-# 3. Prompt the user for a new release tag
-read -r -p 'Enter a new release tag (vX.X.X format): ' new_tag
+# 3. Auto-increment the tag
+if [[ "$latest_tag" == "[unknown]" ]]; then
+	# First release, start with v1.0.0
+	new_tag="v1.0.0"
+else
+	# Parse the latest tag and increment the patch version
+	IFS='.' read -r -a version_parts <<< "${latest_tag#v}"
+	major="${version_parts[0]}"
+	minor="${version_parts[1]}"
+	patch="${version_parts[2]}"
+	
+	# Increment the patch version
+	patch=$((patch + 1))
+	
+	# Construct the new tag
+	new_tag="v${major}.${minor}.${patch}"
+fi
+
+echo -e "Auto-incrementing to new tag: ${BOLD_BLUE}${new_tag}${OFF}"
 
 # 4. Validate the new release tag
 if echo "$new_tag" | grep -q -E "$semver_tag_regex"; then
@@ -67,14 +84,19 @@ else
 	exit 1
 fi
 
-# 5. Remind user to update the version field in package.json
-echo -e -n "Make sure the version field in package.json is ${BOLD_BLUE}$new_tag${OFF}. Yes? [Y/${BOLD_UNDERLINED}n${OFF}] "
-read -r YN
+# 5. Auto-update the version field in package.json
+echo -e "Updating package.json version to ${BOLD_BLUE}$new_tag${OFF}"
+# Update package.json version field (remove the 'v' prefix)
+sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${new_tag#v}\"/" package.json
+echo -e "Updated package.json version field"
 
-if [[ ! ($YN == "y" || $YN == "Y") ]]; then
-	# Package.json version field is not up to date
-	echo -e "Please update the package.json version to ${BOLD_PURPLE}$new_tag${OFF} and commit your changes"
-	exit 1
+# Commit the change if there are any
+if git diff --quiet package.json; then
+	echo -e "No changes needed in package.json"
+else
+	git add package.json
+	git commit -m "chore: bump version to ${new_tag}"
+	echo -e "Committed package.json version update"
 fi
 
 # 6. Tag a new release

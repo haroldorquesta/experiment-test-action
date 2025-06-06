@@ -429,14 +429,14 @@ class OrqExperimentAction {
     normalizedMetricKeys: string[]
   ): ExperimentEvalResults[] {
     const evalValues: ExperimentEvalResults[] = []
-    core.info('extractevalvalues context')
+    // core.info('extractevalvalues context')
 
     const evalColumnIdMapper = this.evaluatorColumnIdMapper(
       normalizedMetricKeys,
       run
     )
 
-    core.info(`evalColumnIdMapper: ${JSON.stringify(evalColumnIdMapper)}`)
+    // core.info(`evalColumnIdMapper: ${JSON.stringify(evalColumnIdMapper)}`)
 
     for (const row of manifestRows) {
       let mapper: ExperimentEvalResults = {}
@@ -444,10 +444,10 @@ class OrqExperimentAction {
 
       for (const evaluator of experiment.unique_evaluators) {
         const evalId = evaluator.evaluator_id
-        core.info(`evaluator: ${JSON.stringify(evaluator)}`)
-        core.info(`evalColumnIdMaper: ${JSON.stringify(evalColumnIdMapper)}`)
+        // core.info(`evaluator: ${JSON.stringify(evaluator)}`)
+        // core.info(`evalColumnIdMaper: ${JSON.stringify(evalColumnIdMapper)}`)
         const evalColumnId = evalColumnIdMapper[evalId]
-        core.info(`evalColumnId: ${JSON.stringify(evalColumnId)}`)
+        // core.info(`evalColumnId: ${JSON.stringify(evalColumnId)}`)
 
         if (!evalColumnId) continue
 

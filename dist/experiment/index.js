@@ -39229,7 +39229,6 @@ class OrqExperimentAction {
             if (!this.githubService.getPullRequest()) {
                 throw new OrqExperimentError('Pull request not found!');
             }
-            await this.apiClient?.getAccount();
             const baseSha = await this.githubService.getPullRequestBase();
             const filesChanged = await this.githubService.getFilesChanged(this.path);
             coreExports.info(`Files changed: ${JSON.stringify(filesChanged)}`);

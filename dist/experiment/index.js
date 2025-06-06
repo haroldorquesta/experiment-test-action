@@ -39442,13 +39442,13 @@ class OrqExperimentAction {
         // Extract the metric suffix for bert_score and rouge_n
         if (metricKey.includes('_bert_score_')) {
             const metric = metricKey.split('_bert_score_')[1];
-            return `Bert Score ${metric.charAt(0).toUpperCase()}${metric.slice(1)})`;
+            return `Bert Score ${metric.charAt(0).toUpperCase()}${metric.slice(1)}`;
         }
         if (metricKey.includes('_rouge_')) {
             const parts = metricKey.split('_');
             const rougeType = ['Rouge 1', 'Rouge 2', 'Rouge L'][parts.length - 2];
             const metric = parts[parts.length - 1]; // f1, precision, recall
-            return `${rougeType} - ${metric.charAt(0).toUpperCase()}${metric.slice(1)})`;
+            return `${rougeType} - ${metric.charAt(0).toUpperCase()}${metric.slice(1)}`;
         }
         return baseName;
     }

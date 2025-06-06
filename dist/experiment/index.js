@@ -39151,9 +39151,6 @@ ${this.formatEvaluationTable(evalTable)}
         return `${key}
 ## ❌ Orq.ai Experiment Run Failed
 
-**Deployment:** ${deploymentKey}  
-**Experiment:** ${experimentKey}
-
 ${deploymentKey ? `**Deployment:** ${deploymentKey}` : ''}  
 ${experimentKey ? `**Experiment:** ${experimentKey}` : ''}  
 

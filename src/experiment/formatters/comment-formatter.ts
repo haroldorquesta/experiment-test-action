@@ -10,9 +10,7 @@ export class CommentFormatter {
     experimentKey: string,
     deploymentKey: string,
     filename: string,
-    workspaceKey?: string,
-    experimentId?: string,
-    experimentRunId?: string
+    experimentUrl?: string
   ): string {
     const key = this.generateCommentKey(filename)
 
@@ -25,18 +23,16 @@ export class CommentFormatter {
 🔄 Your experiment is currently running. Results will be posted here once complete.
 
 ---
-${experimentId && experimentRunId && workspaceKey ? `[View running experiment in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${workspaceKey}/${experimentId}/run/${experimentRunId})` : ''}
+${experimentUrl ? `[View running experiment in Orq.ai](${experimentUrl})` : ''}
 `
   }
 
   formatExperimentResultsComment(
-    experimentId: string,
-    experimentRunId: string,
     experimentKey: string,
     deploymentKey: string,
-    workspaceKey: string,
     evalTable: string[][],
-    filename: string
+    filename: string,
+    experimentUrl: string
   ): string {
     const key = this.generateCommentKey(filename)
 
@@ -49,7 +45,7 @@ ${experimentId && experimentRunId && workspaceKey ? `[View running experiment in
 ${this.formatEvaluationTable(evalTable)}
 
 ---
-[View detailed results in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${workspaceKey}/${experimentId}/run/${experimentRunId})`
+[View detailed results in Orq.ai](${experimentUrl})`
 
     return content
   }

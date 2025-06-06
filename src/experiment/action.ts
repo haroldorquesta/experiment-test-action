@@ -8,8 +8,7 @@ import type {
   ExperimentManifest,
   Experiment,
   ExperimentEvalResults,
-  ExperimentManifestRow,
-  Account
+  ExperimentManifestRow
 } from './types.js'
 import { SheetRunStatus } from './enums.js'
 import { OrqExperimentClientApi } from './services/orq-experiment-client-api.js'
@@ -25,7 +24,6 @@ class OrqExperimentAction {
   private metricsProcessor: MetricsProcessor
   private commentFormatter: CommentFormatter
   private path = ''
-  private account: Account | null = null
 
   constructor() {
     const githubToken = core.getInput('github_token')
@@ -121,16 +119,6 @@ class OrqExperimentAction {
     return yaml.parse(fileContent)
   }
 
-  private getExperimentWorkspace(workspaceId: string): string {
-    for (const workspace of this.account?.workspaces ?? []) {
-      if (workspace.id === workspaceId) {
-        return workspace.key
-      }
-    }
-
-    return ''
-  }
-
   private async runExperiment(
     filename: string,
     payload: DeploymentExperimentRunPayload
@@ -140,9 +128,7 @@ class OrqExperimentAction {
     }
 
     const { deployment_key, experiment_key } = payload
-    let experiment: Experiment | null = null
-    let experimentRun: DeploymentExperimentRunResponse | null = null
-    let experimentWorkspace: string = ''
+    let experimentUrl: string = ''
 
     try {
       // Initial running comment
@@ -155,23 +141,21 @@ class OrqExperimentAction {
       await this.githubService.upsertComment(key, runningComment)
 
       // Run the experiment
-      experimentRun = await this.apiClient.createExperimentRun(payload)
+      const experimentRun = await this.apiClient.createExperimentRun(payload)
+
+      experimentUrl = experimentRun.url
 
       // Get experiment details
-      experiment = await this.apiClient.getExperiment(
+      const experiment = await this.apiClient.getExperiment(
         experimentRun.experiment_id
       )
-
-      experimentWorkspace = this.getExperimentWorkspace(experiment.workspace_id)
 
       // Post initial running comment with experiment link
       runningComment = this.commentFormatter.formatExperimentRunningComment(
         experiment_key,
         deployment_key,
         filename,
-        experimentWorkspace,
-        experimentRun.experiment_id,
-        experimentRun.experiment_run_id
+        experimentUrl
       )
       await this.githubService.upsertComment(key, runningComment)
 
@@ -235,13 +219,11 @@ class OrqExperimentAction {
       // Post results comment
       const resultsComment =
         this.commentFormatter.formatExperimentResultsComment(
-          experimentRun.experiment_id,
-          experimentRun.experiment_run_id,
           experiment_key,
           deployment_key,
-          experimentWorkspace,
           evalTable,
-          filename
+          filename,
+          experimentUrl
         )
 
       await this.githubService.upsertComment(key, resultsComment)
@@ -252,9 +234,7 @@ class OrqExperimentAction {
           filename,
           experiment_key,
           deployment_key,
-          experimentWorkspace,
-          experimentRun?.experiment_id ?? '',
-          experimentRun?.experiment_run_id ?? ''
+          experimentUrl
         )
         const key = this.commentFormatter.generateCommentKey(filename)
         await this.githubService.upsertComment(key, comment)

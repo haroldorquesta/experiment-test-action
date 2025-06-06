@@ -39123,7 +39123,7 @@ class CommentFormatter {
     generateCommentKey(filename) {
         return `<!-- orq-action-identifier:${filename} -->`;
     }
-    formatExperimentRunningComment(experimentKey, deploymentKey, filename, workspaceKey, experimentId, experimentRunId) {
+    formatExperimentRunningComment(experimentKey, deploymentKey, filename, experimentUrl) {
         const key = this.generateCommentKey(filename);
         return `${key}
 ## 🧪 Orq.ai Experiment Running
@@ -39134,10 +39134,10 @@ class CommentFormatter {
 🔄 Your experiment is currently running. Results will be posted here once complete.
 
 ---
-${experimentId && experimentRunId && workspaceKey ? `[View running experiment in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${workspaceKey}/${experimentId}/run/${experimentRunId})` : ''}
+${experimentUrl ? `[View running experiment in Orq.ai](${experimentUrl})` : ''}
 `;
     }
-    formatExperimentResultsComment(experimentId, experimentRunId, experimentKey, deploymentKey, workspaceKey, evalTable, filename) {
+    formatExperimentResultsComment(experimentKey, deploymentKey, evalTable, filename, experimentUrl) {
         const key = this.generateCommentKey(filename);
         const content = `${key}
 ## 🧪 Orq.ai Experiment Results
@@ -39148,7 +39148,7 @@ ${experimentId && experimentRunId && workspaceKey ? `[View running experiment in
 ${this.formatEvaluationTable(evalTable)}
 
 ---
-[View detailed results in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${workspaceKey}/${experimentId}/run/${experimentRunId})`;
+[View detailed results in Orq.ai](${experimentUrl})`;
         return content;
     }
     formatExperimentErrorComment(error, filename, experimentKey, deploymentKey, workspaceKey, experimentId, experimentRunId) {
@@ -39220,7 +39220,6 @@ class OrqExperimentAction {
     metricsProcessor;
     commentFormatter;
     path = '';
-    account = null;
     constructor() {
         const githubToken = coreExports.getInput('github_token');
         this.githubService = new GithubService(githubToken);
@@ -39286,34 +39285,24 @@ class OrqExperimentAction {
         const fileContent = await fs.readFile(filename, 'utf8');
         return YAML.parse(fileContent);
     }
-    getExperimentWorkspace(workspaceId) {
-        for (const workspace of this.account?.workspaces ?? []) {
-            if (workspace.id === workspaceId) {
-                return workspace.key;
-            }
-        }
-        return '';
-    }
     async runExperiment(filename, payload) {
         if (!this.apiClient) {
             throw new OrqExperimentError('API client not initialized');
         }
         const { deployment_key, experiment_key } = payload;
-        let experiment = null;
-        let experimentRun = null;
-        let experimentWorkspace = '';
+        let experimentUrl = '';
         try {
             // Initial running comment
             let runningComment = this.commentFormatter.formatExperimentRunningComment(experiment_key, deployment_key, filename);
             const key = this.commentFormatter.generateCommentKey(filename);
             await this.githubService.upsertComment(key, runningComment);
             // Run the experiment
-            experimentRun = await this.apiClient.createExperimentRun(payload);
+            const experimentRun = await this.apiClient.createExperimentRun(payload);
+            experimentUrl = experimentRun.url;
             // Get experiment details
-            experiment = await this.apiClient.getExperiment(experimentRun.experiment_id);
-            experimentWorkspace = this.getExperimentWorkspace(experiment.workspace_id);
+            const experiment = await this.apiClient.getExperiment(experimentRun.experiment_id);
             // Post initial running comment with experiment link
-            runningComment = this.commentFormatter.formatExperimentRunningComment(experiment_key, deployment_key, filename, experimentWorkspace, experimentRun.experiment_id, experimentRun.experiment_run_id);
+            runningComment = this.commentFormatter.formatExperimentRunningComment(experiment_key, deployment_key, filename, experimentUrl);
             await this.githubService.upsertComment(key, runningComment);
             coreExports.info('wait for completion');
             await this.waitForCompletion(experimentRun);
@@ -39339,12 +39328,12 @@ class OrqExperimentAction {
                 ? this.generateEvalComparisonTable(experiment, currentRun, previousRun, currentManifestRows, previousManifestRows)
                 : [];
             // Post results comment
-            const resultsComment = this.commentFormatter.formatExperimentResultsComment(experimentRun.experiment_id, experimentRun.experiment_run_id, experiment_key, deployment_key, experimentWorkspace, evalTable, filename);
+            const resultsComment = this.commentFormatter.formatExperimentResultsComment(experiment_key, deployment_key, evalTable, filename, experimentUrl);
             await this.githubService.upsertComment(key, resultsComment);
         }
         catch (error) {
             if (error instanceof Error) {
-                const comment = this.commentFormatter.formatExperimentErrorComment(error, filename, experiment_key, deployment_key, experimentWorkspace, experimentRun?.experiment_id ?? '', experimentRun?.experiment_run_id ?? '');
+                const comment = this.commentFormatter.formatExperimentErrorComment(error, filename, experiment_key, deployment_key, experimentUrl);
                 const key = this.commentFormatter.generateCommentKey(filename);
                 await this.githubService.upsertComment(key, comment);
             }

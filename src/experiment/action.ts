@@ -60,14 +60,16 @@ class OrqExperimentAction {
 
   private async processFile(filename: string, baseSha: string): Promise<void> {
     try {
-      const hasChange = await this.configChange(filename, baseSha)
+      const configChange = await this.configChange(filename, baseSha)
 
-      if (!hasChange) {
+      if (!configChange) {
         core.info(`No relevant changes detected in ${filename}`)
         return
       }
 
-      await this.runExperiment(filename, hasChange)
+      throw new OrqExperimentError('test error')
+
+      await this.runExperiment(filename, configChange)
     } catch (error) {
       if (error instanceof Error) {
         const comment = this.commentFormatter.formatExperimentErrorComment(

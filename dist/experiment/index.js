@@ -39243,12 +39243,13 @@ class OrqExperimentAction {
     }
     async processFile(filename, baseSha) {
         try {
-            const hasChange = await this.configChange(filename, baseSha);
-            if (!hasChange) {
+            const configChange = await this.configChange(filename, baseSha);
+            if (!configChange) {
                 coreExports.info(`No relevant changes detected in ${filename}`);
                 return;
             }
-            await this.runExperiment(filename, hasChange);
+            throw new OrqExperimentError('test error');
+            await this.runExperiment(filename, configChange);
         }
         catch (error) {
             if (error instanceof Error) {

@@ -39140,7 +39140,7 @@ ${experimentUrl ? `[View running experiment in Orq.ai](${experimentUrl})` : ''}
 **Deployment:** ${deploymentKey}  
 **Experiment:** ${experimentKey}
 
-${this.formatEvaluationTable(evalTable)}
+${generateMarkdownTable(evalTable.headers, evalTable.rows)}
 
 ---
 [View detailed results in Orq.ai](${experimentUrl})`;
@@ -39160,49 +39160,6 @@ Please check your configuration and try again.
 ---
 ${experimentId && experimentRunId && workspaceKey ? `[View running experiment in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${workspaceKey}/${experimentId}/run/${experimentRunId})` : ''}
 `;
-    }
-    formatEvaluationTable(evalTable) {
-        if (evalTable.length === 0) {
-            return '*No evaluation metrics to compare*';
-        }
-        const headers = ['Score', 'Average', 'Improvements', 'Regressions'];
-        return generateMarkdownTable(headers, evalTable);
-    }
-    formatMetricsDiff(currentMetrics, previousMetrics) {
-        const metricsTable = [];
-        if ('orq_cost' in currentMetrics && 'orq_cost' in previousMetrics) {
-            const currentCost = currentMetrics.orq_cost;
-            const previousCost = previousMetrics.orq_cost;
-            const costDiff = currentCost - previousCost;
-            const costIcon = costDiff < 0
-                ? CONSTANTS.UNICODE.SUCCESS
-                : costDiff > 0
-                    ? CONSTANTS.UNICODE.ERROR
-                    : CONSTANTS.UNICODE.NEUTRAL;
-            metricsTable.push([
-                'Cost',
-                `$${formatNumber(previousCost)}`,
-                `$${formatNumber(currentCost)}`,
-                `${costIcon} $${formatNumber(Math.abs(costDiff))}`
-            ]);
-        }
-        if ('orq_latency' in currentMetrics && 'orq_latency' in previousMetrics) {
-            const currentLatency = currentMetrics.orq_latency;
-            const previousLatency = previousMetrics.orq_latency;
-            const latencyDiff = currentLatency - previousLatency;
-            const latencyIcon = latencyDiff < 0
-                ? CONSTANTS.UNICODE.SUCCESS
-                : latencyDiff > 0
-                    ? CONSTANTS.UNICODE.ERROR
-                    : CONSTANTS.UNICODE.NEUTRAL;
-            metricsTable.push([
-                'Latency',
-                `${formatNumber(previousLatency)}ms`,
-                `${formatNumber(currentLatency)}ms`,
-                `${latencyIcon} ${formatNumber(Math.abs(latencyDiff))}ms`
-            ]);
-        }
-        return metricsTable;
     }
 }
 
@@ -39317,7 +39274,7 @@ class OrqExperimentAction {
             // Generate comparison tables
             const evalTable = previousRun && previousManifestRows
                 ? this.generateEvalComparisonTable(experiment, currentRun, previousRun, currentManifestRows, previousManifestRows)
-                : [];
+                : this.generateExperimentRunEvalTable(experiment, currentRun, currentManifestRows);
             // Post results comment
             const resultsComment = this.commentFormatter.formatExperimentResultsComment(experiment_key, deployment_key, evalTable, filename, experimentUrl);
             await this.githubService.upsertComment(key, resultsComment);
@@ -39348,8 +39305,36 @@ class OrqExperimentAction {
             await sleep(CONSTANTS.POLL_INTERVAL_SECONDS);
         }
     }
+    generateExperimentRunEvalTable(experiment, currentRun, currentManifestRows) {
+        const evalTableRows = [];
+        coreExports.info('current evals');
+        const currentRunNormalizedMetrics = this.metricsProcessor.normalizeMetrics(currentRun.metrics);
+        const currentRunNormalizedMetricKeys = Object.keys(currentRunNormalizedMetrics);
+        const currentEvals = this.extractEvalValues(experiment, currentRun, currentManifestRows, currentRunNormalizedMetricKeys);
+        coreExports.info(JSON.stringify(currentEvals));
+        coreExports.info('previous evals');
+        for (const evaluator of experiment.unique_evaluators) {
+            const evalId = evaluator.evaluator_id;
+            const evalKey = evaluator.evaluator_key;
+            coreExports.info(`evalKey: ${evalKey}`);
+            // Get all metric keys for this evaluator based on type
+            const metricKeys = this.getMetricKeysForEvaluator(evalId, evalKey);
+            coreExports.info(`metricKeys: ${metricKeys}`);
+            for (const metricKey of metricKeys) {
+                const currentAverage = currentRunNormalizedMetrics[metricKey];
+                const averageDisplay = `${formatNumber(currentAverage)}}`;
+                // Generate display name for the metric
+                const displayName = this.getMetricDisplayName(evalId, metricKey, evaluator.evaluator_name);
+                evalTableRows.push([displayName, averageDisplay]);
+            }
+        }
+        return {
+            headers: ['Score', 'Average'],
+            rows: evalTableRows
+        };
+    }
     generateEvalComparisonTable(experiment, currentRun, previousRun, currentManifestRows, previousManifestRows) {
-        const evalTable = [];
+        const evalTableRows = [];
         coreExports.info('current evals');
         const currentRunNormalizedMetrics = this.metricsProcessor.normalizeMetrics(currentRun.metrics);
         const currentRunNormalizedMetricKeys = Object.keys(currentRunNormalizedMetrics);
@@ -39414,7 +39399,7 @@ class OrqExperimentAction {
                 const averageDisplay = `${formatNumber(currentAverage)} ${averageDiff !== 0 ? `(${diffSign}${formatNumber(averageDiff)})` : ''}`;
                 // Generate display name for the metric
                 const displayName = this.getMetricDisplayName(evalId, metricKey, evaluator.evaluator_name);
-                evalTable.push([
+                evalTableRows.push([
                     displayName,
                     averageDisplay,
                     improvementDisplay,
@@ -39422,7 +39407,10 @@ class OrqExperimentAction {
                 ]);
             }
         }
-        return evalTable;
+        return {
+            headers: ['Score', 'Average', 'Improvements', 'Regressions'],
+            rows: evalTableRows
+        };
     }
     getMetricKeysForEvaluator(evalId, evalKey) {
         switch (evalKey) {

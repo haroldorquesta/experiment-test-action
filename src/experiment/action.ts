@@ -8,7 +8,8 @@ import type {
   ExperimentManifest,
   Experiment,
   ExperimentEvalResults,
-  ExperimentManifestRow
+  ExperimentManifestRow,
+  EvalTable
 } from './types.js'
 import { SheetRunStatus } from './enums.js'
 import { OrqExperimentClientApi } from './services/orq-experiment-client-api.js'
@@ -203,7 +204,7 @@ class OrqExperimentAction {
       core.info('running eval table')
 
       // Generate comparison tables
-      const evalTable =
+      const evalTable: EvalTable =
         previousRun && previousManifestRows
           ? this.generateEvalComparisonTable(
               experiment,
@@ -212,7 +213,11 @@ class OrqExperimentAction {
               currentManifestRows,
               previousManifestRows
             )
-          : []
+          : this.generateExperimentRunEvalTable(
+              experiment,
+              currentRun,
+              currentManifestRows
+            )
 
       // Post results comment
       const resultsComment =
@@ -265,14 +270,69 @@ class OrqExperimentAction {
     }
   }
 
+  private generateExperimentRunEvalTable(
+    experiment: Experiment,
+    currentRun: ExperimentManifest,
+    currentManifestRows: ExperimentManifestRow[]
+  ): EvalTable {
+    const evalTableRows: string[][] = []
+    core.info('current evals')
+    const currentRunNormalizedMetrics = this.metricsProcessor.normalizeMetrics(
+      currentRun.metrics
+    )
+    const currentRunNormalizedMetricKeys = Object.keys(
+      currentRunNormalizedMetrics
+    )
+
+    const currentEvals = this.extractEvalValues(
+      experiment,
+      currentRun,
+      currentManifestRows,
+      currentRunNormalizedMetricKeys
+    )
+    core.info(JSON.stringify(currentEvals))
+    core.info('previous evals')
+
+    for (const evaluator of experiment.unique_evaluators) {
+      const evalId = evaluator.evaluator_id
+      const evalKey = evaluator.evaluator_key
+      core.info(`evalKey: ${evalKey}`)
+
+      // Get all metric keys for this evaluator based on type
+      const metricKeys = this.getMetricKeysForEvaluator(evalId, evalKey)
+
+      core.info(`metricKeys: ${metricKeys}`)
+
+      for (const metricKey of metricKeys) {
+        const currentAverage = currentRunNormalizedMetrics[metricKey]
+
+        const averageDisplay = `${formatNumber(currentAverage)}}`
+
+        // Generate display name for the metric
+        const displayName = this.getMetricDisplayName(
+          evalId,
+          metricKey,
+          evaluator.evaluator_name
+        )
+
+        evalTableRows.push([displayName, averageDisplay])
+      }
+    }
+
+    return {
+      headers: ['Score', 'Average'],
+      rows: evalTableRows
+    }
+  }
+
   private generateEvalComparisonTable(
     experiment: Experiment,
     currentRun: ExperimentManifest,
     previousRun: ExperimentManifest,
     currentManifestRows: ExperimentManifestRow[],
     previousManifestRows: ExperimentManifestRow[]
-  ): string[][] {
-    const evalTable: string[][] = []
+  ): EvalTable {
+    const evalTableRows: string[][] = []
     core.info('current evals')
     const currentRunNormalizedMetrics = this.metricsProcessor.normalizeMetrics(
       currentRun.metrics
@@ -375,7 +435,7 @@ class OrqExperimentAction {
           evaluator.evaluator_name
         )
 
-        evalTable.push([
+        evalTableRows.push([
           displayName,
           averageDisplay,
           improvementDisplay,
@@ -384,7 +444,10 @@ class OrqExperimentAction {
       }
     }
 
-    return evalTable
+    return {
+      headers: ['Score', 'Average', 'Improvements', 'Regressions'],
+      rows: evalTableRows
+    }
   }
 
   private getMetricKeysForEvaluator(evalId: string, evalKey: string): string[] {

@@ -102,6 +102,11 @@ export type ExperimentManifestRowCell = {
   updated?: string
 }
 
+export type EvalTable = {
+  headers: string[]
+  rows: string[][]
+}
+
 export type ExperimentManifestRow = {
   status: string
   sheet_id: string

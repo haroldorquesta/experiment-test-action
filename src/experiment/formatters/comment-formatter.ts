@@ -1,5 +1,6 @@
-import { formatNumber, generateMarkdownTable } from '../utils.js'
+import { generateMarkdownTable } from '../utils.js'
 import { CONSTANTS } from '../constants.js'
+import { EvalTable } from '../types.js'
 
 export class CommentFormatter {
   generateCommentKey(filename: string): string {
@@ -30,7 +31,7 @@ ${experimentUrl ? `[View running experiment in Orq.ai](${experimentUrl})` : ''}
   formatExperimentResultsComment(
     experimentKey: string,
     deploymentKey: string,
-    evalTable: string[][],
+    evalTable: EvalTable,
     filename: string,
     experimentUrl: string
   ): string {
@@ -42,7 +43,7 @@ ${experimentUrl ? `[View running experiment in Orq.ai](${experimentUrl})` : ''}
 **Deployment:** ${deploymentKey}  
 **Experiment:** ${experimentKey}
 
-${this.formatEvaluationTable(evalTable)}
+${generateMarkdownTable(evalTable.headers, evalTable.rows)}
 
 ---
 [View detailed results in Orq.ai](${experimentUrl})`
@@ -73,61 +74,5 @@ Please check your configuration and try again.
 ---
 ${experimentId && experimentRunId && workspaceKey ? `[View running experiment in Orq.ai](${CONSTANTS.API_BASE_URL}/experiments/${workspaceKey}/${experimentId}/run/${experimentRunId})` : ''}
 `
-  }
-
-  private formatEvaluationTable(evalTable: string[][]): string {
-    if (evalTable.length === 0) {
-      return '*No evaluation metrics to compare*'
-    }
-
-    const headers = ['Score', 'Average', 'Improvements', 'Regressions']
-    return generateMarkdownTable(headers, evalTable)
-  }
-
-  formatMetricsDiff(
-    currentMetrics: Record<string, number>,
-    previousMetrics: Record<string, number>
-  ): string[][] {
-    const metricsTable: string[][] = []
-
-    if ('orq_cost' in currentMetrics && 'orq_cost' in previousMetrics) {
-      const currentCost = currentMetrics.orq_cost
-      const previousCost = previousMetrics.orq_cost
-      const costDiff = currentCost - previousCost
-      const costIcon =
-        costDiff < 0
-          ? CONSTANTS.UNICODE.SUCCESS
-          : costDiff > 0
-            ? CONSTANTS.UNICODE.ERROR
-            : CONSTANTS.UNICODE.NEUTRAL
-
-      metricsTable.push([
-        'Cost',
-        `$${formatNumber(previousCost)}`,
-        `$${formatNumber(currentCost)}`,
-        `${costIcon} $${formatNumber(Math.abs(costDiff))}`
-      ])
-    }
-
-    if ('orq_latency' in currentMetrics && 'orq_latency' in previousMetrics) {
-      const currentLatency = currentMetrics.orq_latency
-      const previousLatency = previousMetrics.orq_latency
-      const latencyDiff = currentLatency - previousLatency
-      const latencyIcon =
-        latencyDiff < 0
-          ? CONSTANTS.UNICODE.SUCCESS
-          : latencyDiff > 0
-            ? CONSTANTS.UNICODE.ERROR
-            : CONSTANTS.UNICODE.NEUTRAL
-
-      metricsTable.push([
-        'Latency',
-        `${formatNumber(previousLatency)}ms`,
-        `${formatNumber(currentLatency)}ms`,
-        `${latencyIcon} ${formatNumber(Math.abs(latencyDiff))}ms`
-      ])
-    }
-
-    return metricsTable
   }
 }

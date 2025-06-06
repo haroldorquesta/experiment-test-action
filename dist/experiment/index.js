@@ -39386,8 +39386,8 @@ class OrqExperimentAction {
                 if (validComparisons === 0) {
                     continue; // Skip this metric if no valid comparisons
                 }
-                const currentAverage = currentRunNormalizedMetrics[evalId];
-                const previousAverage = previousRunNormalizedMetrics[evalId];
+                const currentAverage = currentRunNormalizedMetrics[metricKey];
+                const previousAverage = previousRunNormalizedMetrics[metricKey];
                 const averageDiff = currentAverage - previousAverage;
                 const improvementDisplay = improvements > 0
                     ? `${CONSTANTS.UNICODE.SUCCESS} ${improvements}`

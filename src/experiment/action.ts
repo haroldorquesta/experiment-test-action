@@ -333,8 +333,8 @@ class OrqExperimentAction {
           continue // Skip this metric if no valid comparisons
         }
 
-        const currentAverage = currentRunNormalizedMetrics[evalId]
-        const previousAverage = previousRunNormalizedMetrics[evalId]
+        const currentAverage = currentRunNormalizedMetrics[metricKey]
+        const previousAverage = previousRunNormalizedMetrics[metricKey]
         const averageDiff = currentAverage - previousAverage
 
         const improvementDisplay =

@@ -34879,11 +34879,6 @@ class OrqExperimentClientApi {
             }
         });
     }
-    async getAccount() {
-        return this.makeRequest(`/v2/api/me`, {
-            method: 'GET'
-        });
-    }
     async getCurrentAndPreviousRunManifest(experimentId, experimentRunId) {
         const allRuns = await this.getAllExperimentManifests(experimentId);
         const currentRunIndex = allRuns.findIndex((manifest) => manifest._id === experimentRunId);

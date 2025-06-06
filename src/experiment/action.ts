@@ -129,7 +129,6 @@ class OrqExperimentAction {
     let experimentUrl: string = ''
 
     try {
-      throw new OrqExperimentError('test error')
       // Initial running comment
       let runningComment = this.commentFormatter.formatExperimentRunningComment(
         experiment_key,

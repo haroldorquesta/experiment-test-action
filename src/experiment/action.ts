@@ -67,8 +67,6 @@ class OrqExperimentAction {
         return
       }
 
-      throw new OrqExperimentError('test error')
-
       await this.runExperiment(filename, configChange)
     } catch (error) {
       if (error instanceof Error) {
@@ -131,6 +129,7 @@ class OrqExperimentAction {
     let experimentUrl: string = ''
 
     try {
+      throw new OrqExperimentError('test error')
       // Initial running comment
       let runningComment = this.commentFormatter.formatExperimentRunningComment(
         experiment_key,

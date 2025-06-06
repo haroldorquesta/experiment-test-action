@@ -39245,7 +39245,6 @@ class OrqExperimentAction {
                 coreExports.info(`No relevant changes detected in ${filename}`);
                 return;
             }
-            throw new OrqExperimentError('test error');
             await this.runExperiment(filename, configChange);
         }
         catch (error) {
@@ -39284,6 +39283,7 @@ class OrqExperimentAction {
         const { deployment_key, experiment_key } = payload;
         let experimentUrl = '';
         try {
+            throw new OrqExperimentError('test error');
             // Initial running comment
             let runningComment = this.commentFormatter.formatExperimentRunningComment(experiment_key, deployment_key, filename);
             const key = this.commentFormatter.generateCommentKey(filename);

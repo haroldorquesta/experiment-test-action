@@ -39533,6 +39533,7 @@ async function run() {
         validateActionInputs();
         const action = new OrqExperimentAction();
         await action.run();
+        console.info('test');
     }
     catch (error) {
         // Fail the workflow run if an error occurs

@@ -84,7 +84,6 @@ else
 	exit 1
 fi
 
-npm install
 npm run package
 
 # Commit the change from dist if there are any

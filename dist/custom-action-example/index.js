@@ -27249,7 +27249,6 @@ var coreExports = requireCore();
 async function run() {
     try {
         coreExports.debug('custom action example');
-        console.info('test');
     }
     catch (error) {
         // Fail the workflow run if an error occurs

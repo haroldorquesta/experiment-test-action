@@ -84,6 +84,18 @@ else
 	exit 1
 fi
 
+npm install
+npm run package
+
+# Commit the change from dist if there are any
+if git diff --quiet dist; then
+	echo -e "${BOLD_RED}No changes detected in dist/ folder${OFF}"
+	echo -e "Exiting release process - please make changes before releasing"
+	exit 0
+else
+	git add dist
+fi
+
 # 5. Auto-update the version field in package.json
 echo -e "Updating package.json version to ${BOLD_BLUE}$new_tag${OFF}"
 # Update package.json version field (remove the 'v' prefix)
@@ -95,7 +107,8 @@ if git diff --quiet package.json; then
 	echo -e "No changes needed in package.json"
 else
 	git add package.json
-	git commit -m "chore: bump version to ${new_tag}"
+	git add dist
+	git commit -m "chore: bump version to ${new_tag} [skip ci]"
 	echo -e "Committed package.json version update"
 fi
 

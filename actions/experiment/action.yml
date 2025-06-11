@@ -2,11 +2,6 @@ name: 'Orq test experiment'
 description: 'Automatically run experiment on your project using Orq'
 author: 'haroldorquesta'
 
-# Add your action's branding here. This will appear on the GitHub Marketplace.
-branding:
-  icon: heart
-  color: red
-
 # Define your inputs here.
 inputs:
   api_key:

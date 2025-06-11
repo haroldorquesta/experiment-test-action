@@ -1,0 +1,145 @@
+#!/bin/bash
+
+# Exit early
+# See: https://www.gnu.org/savannah-checkouts/gnu/bash/manual/bash.html#The-Set-Builtin
+set -e
+
+# Validate parameter
+if [ $# -ne 1 ]; then
+    echo "Error: This script requires exactly one parameter - the action name"
+    echo "Usage: $0 <action-name>"
+    exit 1
+fi
+
+ACTION_NAME="$1"
+
+# Validate action name (alphanumeric and hyphens only)
+if ! [[ "$ACTION_NAME" =~ ^[a-zA-Z0-9-]+$ ]]; then
+    echo "Error: Action name must contain only letters, numbers, and hyphens"
+    exit 1
+fi
+
+# Convert to lowercase for consistency
+ACTION_NAME_LOWER=$(echo "$ACTION_NAME" | tr '[:upper:]' '[:lower:]')
+
+# Convert hyphenated name to camelCase for TypeScript
+ACTION_NAME_CAMEL=$(echo "$ACTION_NAME_LOWER" | awk -F'-' '{for(i=1;i<=NF;i++){if(i==1){$i=tolower($i)}else{$i=toupper(substr($i,1,1))substr($i,2)}}print}' OFS='')
+
+# Convert to PascalCase for class names
+ACTION_NAME_PASCAL=$(echo "$ACTION_NAME_LOWER" | awk -F'-' '{for(i=1;i<=NF;i++){$i=toupper(substr($i,1,1))substr($i,2)}print}' OFS='')
+
+# Define paths
+ACTION_DIR="actions/$ACTION_NAME_LOWER"
+SRC_DIR="src/$ACTION_NAME_LOWER"
+
+# Check if action already exists
+if [ -d "$ACTION_DIR" ] || [ -d "$SRC_DIR" ]; then
+    echo "Error: Action '$ACTION_NAME_LOWER' already exists"
+    exit 1
+fi
+
+echo "Creating new action: $ACTION_NAME_LOWER"
+
+# Create action directory
+mkdir -p "$ACTION_DIR"
+
+# Create action.yml
+cat > "$ACTION_DIR/action.yml" << EOF
+name: '$ACTION_NAME'
+description: '<description>'
+author: 'orq'
+
+# Define your inputs here.
+inputs:
+  example_input:
+    description: An example input for $ACTION_NAME
+    required: true
+
+# Define your outputs here.
+outputs:
+  example_output:
+    description: An example output for $ACTION_NAME
+
+runs:
+  using: node20
+  main: ../../dist/$ACTION_NAME_LOWER/index.js
+EOF
+
+echo "✓ Created $ACTION_DIR/action.yml"
+
+# Create src directory
+mkdir -p "$SRC_DIR"
+
+# Create index.ts
+cat > "$SRC_DIR/index.ts" << EOF
+import * as core from '@actions/core'
+
+async function run(): Promise<void> {
+  try {
+    console.info('action logic here')
+  } catch (error) {
+    // Fail the workflow run if an error occurs
+    if (error instanceof Error) core.setFailed(error.message)
+  }
+}
+
+run()
+EOF
+
+# Update rollup.config.ts
+ROLLUP_CONFIG="$PROJECT_ROOT/rollup.config.ts"
+TEMP_FILE=$(mktemp)
+
+# Read the existing config and add new entry
+awk -v action_name="$ACTION_NAME_LOWER" '
+/^const config = \[/ {
+    print
+    in_config = 1
+    next
+}
+/^]$/ && in_config {
+    # Add comma to previous entry if needed
+    if (prev_line && prev_line ~ /}$/) {
+        print prev_line ","
+    } else if (prev_line) {
+        print prev_line
+    }
+    
+    # Add new entry
+    print "  {"
+    print "    input: '\''src/" action_name "/index.ts'\'',"
+    print "    output: {"
+    print "      esModule: true,"
+    print "      file: '\''dist/" action_name "/index.js'\'',"
+    print "      format: '\''es'\'',"
+    print "      sourcemap: true"
+    print "    },"
+    print "    plugins: [typescript(), nodeResolve({ preferBuiltins: true }), commonjs()]"
+    print "  }"
+    print "]"
+    in_config = 0
+    prev_line = ""
+    next
+}
+in_config {
+    if (prev_line) print prev_line
+    prev_line = $0
+    next
+}
+{
+    print
+}
+' "$ROLLUP_CONFIG" > "$TEMP_FILE"
+
+mv "$TEMP_FILE" "$ROLLUP_CONFIG"
+
+echo "✓ Updated rollup.config.ts"
+
+echo ""
+echo "✅ Action '$ACTION_NAME_LOWER' created successfully!"
+echo ""
+echo "Next steps:"
+echo "1. Update the action.yml file in actions/$ACTION_NAME_LOWER/"
+echo "2. Implement your action logic in src/$ACTION_NAME_LOWER/index.ts"
+echo "3. Run 'npm run bundle' to compile the action"
+echo "4. Test your action locally by running the command `npx @github/local-action . src/<action-name>/index.ts .env`"

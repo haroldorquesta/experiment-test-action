@@ -14,16 +14,6 @@ const config = [
       sourcemap: true
     },
     plugins: [typescript(), nodeResolve({ preferBuiltins: true }), commonjs()]
-  },
-  {
-    input: 'src/custom-action-example/index.ts',
-    output: {
-      esModule: true,
-      file: 'dist/custom-action-example/index.js',
-      format: 'es',
-      sourcemap: true
-    },
-    plugins: [typescript(), nodeResolve({ preferBuiltins: true }), commonjs()]
   }
 ]
 

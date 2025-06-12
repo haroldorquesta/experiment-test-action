@@ -86,6 +86,13 @@ if (originalData.deployment_key !== newData.deployment_key) {
 
 ## Step 5: Post Results to PR
 
+Use the `octokit` library from the `github` package in connecting to github api for comments in a PR
+
+```typescript
+import * as github from '@actions/github'
+const octokit = github.getOctokit(<github-token>)
+```
+
 **Find existing comment:**
 ```typescript
 const comments = await octokit.rest.issues.listComments({

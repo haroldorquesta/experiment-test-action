@@ -1,4 +1,4 @@
-# Guide to Detecting Changes in a PR
+# Guide to Detecting Changes in a PR for Experiment Action
 
 This guide explains how to detect file changes in pull requests.
 
@@ -43,10 +43,23 @@ const yamlFiles = response.data.files.filter(file =>
 
 ## Step 3: Get File Contents
 
+Only possible if the workflow has a step for checkout
+
+```yaml
+   steps:
+      - name: Checkout
+        id: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+```
+
 **From PR (current version):**
 ```typescript
 const newContent = fs.readFileSync(filename, 'utf8')
 ```
+
+if no checkout in the workflow steps then have to use this example below which getting the content from a commit hash for a specific file
 
 **From base branch (original version):**
 ```typescript
@@ -56,7 +69,7 @@ const response = await octokit.rest.repos.getContent({
    path: filename,
    ref: baseSha
 })
-const originalContent = Buffer.from(response.data.content, 'base64').toString()
+const originalContent = Buffer.from(response.data.content, 'base64').toString() // response content is in base64 format - needed to convert to plaintext
 ```
 
 ## Step 4: Compare Contents
@@ -65,7 +78,7 @@ const originalContent = Buffer.from(response.data.content, 'base64').toString()
 const originalData = yaml.parse(originalContent)
 const newData = yaml.parse(newContent)
 
-// Example: Check if specific fields changed
+// Example: Check if specific fields changed in values
 if (originalData.deployment_key !== newData.deployment_key) {
     // Field changed - take action
 }

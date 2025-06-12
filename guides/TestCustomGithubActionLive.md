@@ -34,7 +34,7 @@ jobs:
           node-version: 20
  
       - name: Run experiments
-        uses: <orq_name>/<repo_name>/actions/<custom-action-name>@<branch-name-or-tag-version> # actual custom action
+        uses: <org_name>/<repo_name>/actions/<custom-action-name>@<branch-name-or-tag-version> # actual custom action
         with:
           <input_key1>: ${{ secrets.<SECRET_NAME> }} # pass input 1
           <input_key2>: <input_value>  # pass input 2

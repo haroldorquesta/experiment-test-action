@@ -30,6 +30,6 @@ need to perform some initial setup steps before you can develop your action.
    npm run bundle
    ```
 
-## Extra
-[Create a new custom github action guide](NewCustomGithubActionGuide.md)
-[Detect PR changes guide](NewCustomGithubActionGuide.md)
+## Guides
+- [Create a new custom github action guide](NewCustomGithubActionGuide.md)
+- [Detect PR changes guide](NewCustomGithubActionGuide.md)

@@ -32,4 +32,4 @@ need to perform some initial setup steps before you can develop your action.
 
 ## Guides
 - [Create a new custom github action guide](NewCustomGithubActionGuide.md)
-- [Detect PR changes guide](NewCustomGithubActionGuide.md)
+- [Detect PR changes guide](DetectPRChangesGuide.md)

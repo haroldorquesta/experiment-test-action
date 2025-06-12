@@ -197,9 +197,16 @@ import * as core from '@actions/core'
 core.getInput('<input-name>')
 ```
 
+### Install new package/library
+
+Need to install a new package/library run the below command
+```bash
+npm install <package-name>
+```
+
 ### Input Validation
 
-Validate all inputs before processing (either via simple checking or use):
+Validate all inputs before processing (either via simple checking or use zod schema package):
 ```typescript
 const input = core.getInput('my_input')
 if (!input || input.trim() === '') {

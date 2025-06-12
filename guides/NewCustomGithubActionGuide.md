@@ -12,6 +12,7 @@ The `script/new-action` script automates the process of creating a new custom gi
 - Node.js (20) and npm installed
 - Basic understanding of GitHub Actions
 - Access to the repository
+- Create a new branch
 
 ## Usage
 

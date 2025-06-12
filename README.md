@@ -33,4 +33,4 @@ need to perform some initial setup steps before you can develop your action.
 ## Custom Github Action Guides
 - [Create a new custom github action guide](guides/NewCustomGithubActionGuide.md)
 - [Detect PR changes guide](guides/DetectPRChangesGuide.md)
-- [Test custom github action live](guides/TestCustomGithubActionLive.md)
+- [Test custom github action live before publishing](guides/TestCustomGithubActionLive.md)

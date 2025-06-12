@@ -1,5 +1,7 @@
 # Guide to test custom github action live
 
+To test the new branch with your custom action you first need to run the bundle `npm run bundle` then commit it.
+
 Either create a new repo or use existing repo then add the new workflow below in `.github/workflows/<workflow-name>.yml`
 
 ```yaml
@@ -19,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest # ubuntu base
  
     steps:
-      - name: Checkout # to get the current branch changes (needed to read the new change)
+      - name: Checkout # to get the current branch all files content (needed to read the new change)
         id: checkout
         uses: actions/checkout@v4
         with:
@@ -34,6 +36,6 @@ jobs:
       - name: Run experiments
         uses: <orq_name>/<repo_name>/actions/<custom-action-name>@<branch-name-or-tag-version> # actual custom action
         with:
-          <input_key1>: ${{ secrets.<SECRET_NAME> }}
-          <input_key2>: <input_value>
+          <input_key1>: ${{ secrets.<SECRET_NAME> }} # pass input 1
+          <input_key2>: <input_value>  # pass input 2
 ```

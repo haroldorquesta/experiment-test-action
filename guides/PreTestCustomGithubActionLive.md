@@ -1,6 +1,6 @@
-# Guide to test custom github action live after release
+# Guide to test custom github action live
 
-To test the live version it need to be merge first to main branch which will automatically create a new release `v1.0.x`
+To test the new branch with your custom action you first need to run the bundle `npm run bundle` then commit it.
 
 Either create a new repo or use existing repo then add the new workflow below in `.github/workflows/<workflow-name>.yml`
 
@@ -34,7 +34,7 @@ jobs:
           node-version: 20
  
       - name: Run experiments
-        uses: <org_name>/<repo_name>/actions/<custom-action-name>@<latest-release-tag-version> or v1 # actual custom action, v1 is always the latest release tag if wanted to use a specific version explicitly specify it v1.0.<version>
+        uses: <org_name>/<repo_name>/actions/<custom-action-name>@<branch-name> # actual custom action
         with:
           <input_key1>: ${{ secrets.<SECRET_NAME> }} # pass input 1
           <input_key2>: <input_value>  # pass input 2
